@@ -3,6 +3,7 @@
 # Logs to update.log next to this script.
 
 set -uo pipefail
+export PATH="/opt/anaconda3/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 cd "$(dirname "$0")"
 
 LOG="update.log"
