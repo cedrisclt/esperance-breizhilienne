@@ -506,6 +506,11 @@ main.app-main {
   text-align: center;
 }
 
+@media (max-width: 420px) {
+  .pitch-slot { width: 66px; }
+  .pitch-slot select { font-size: .62rem; padding: 3px 1px; }
+}
+
 .pitch-slot .slot-label {
   font-size: .6rem;
   color: rgba(255,255,255,0.85);
@@ -597,6 +602,46 @@ main.app-main {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+/* Résultats (score + buteurs) */
+
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.score-input {
+  width: 56px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: .95rem;
+  text-align: center;
+  font-family: inherit;
+}
+
+.score-input.small {
+  width: 48px;
+  padding: 6px;
+}
+
+.scorers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scorer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: .9rem;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.scorer-row:last-child { border-bottom: none; }
 
 /* MVP voting */
 

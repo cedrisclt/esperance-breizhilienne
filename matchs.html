@@ -22,6 +22,7 @@
       <a href="disponibilites.html">Disponibilités</a>
       <a href="compo.html">Compositions</a>
       <a href="mvp.html">MVP</a>
+      <a href="resultats.html">Résultats</a>
       <a href="recap.html">Récap</a>
     </nav>
   </div>
@@ -33,6 +34,11 @@
     Supabase n'est pas configuré. Renseigne <code>js/config.js</code>, puis exécute
     <code>supabase/schema.sql</code> dans l'éditeur SQL de ton projet Supabase.
   </div>
+
+  <section class="card">
+    <h2>Matchs à venir</h2>
+    <div id="matchList"></div>
+  </section>
 
   <section class="card">
     <h2>Ajouter un match</h2>
@@ -83,11 +89,6 @@
       </p>
       <button class="btn" type="submit">Ajouter le match</button>
     </form>
-  </section>
-
-  <section class="card">
-    <h2>Matchs à venir</h2>
-    <div id="matchList"></div>
   </section>
 
 </main>

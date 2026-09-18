@@ -28,6 +28,7 @@
       <a href="disponibilites.html">Disponibilités</a>
       <a href="compo.html">Compositions</a>
       <a href="mvp.html">MVP</a>
+      <a href="resultats.html">Résultats</a>
       <a href="recap.html">Récap</a>
     </nav>
   </div>
@@ -49,6 +50,11 @@
         <div><strong>Lieu</strong> La Courneuve  n°1B - 20h  93 La Courneuve</div>
       </div>
     </div>
+  </section>
+
+  <section class="card" id="dropCard" style="display:none">
+    <h2>Inscriptions au prochain match</h2>
+    <div id="dropWidget"></div>
   </section>
 
   <section class="card">
@@ -79,6 +85,80 @@
 <footer>
   <p>Espérance Breizhilienne &middot; Foot à 7 FSGT IDF &middot; Page non officielle générée pour l'équipe</p>
 </footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script>
+async function initDropWidget() {
+  if (!db.isConfigured()) return;
+  try {
+    const matches = await db.listMatches({ upcomingOnly: true });
+    if (matches.length === 0) return;
+    const next = [...matches].sort((a, b) => (a.match_date < b.match_date ? -1 : 1))[0];
+
+    document.getElementById("dropCard").style.display = "block";
+    const widget = document.getElementById("dropWidget");
+    const opponentLine = `vs ${escapeHtml(next.opponent)} — ${formatDate(next.match_date)}`;
+
+    const isOpen = !next.drop_at || new Date(next.drop_at) <= new Date();
+    if (isOpen) {
+      widget.innerHTML = `
+        <p style="margin:0 0 12px">${opponentLine}</p>
+        <a class="btn" href="disponibilites.html">✅ Dispos ouvertes — s'inscrire</a>
+      `;
+    } else {
+      widget.innerHTML = `
+        <p style="margin:0 0 12px">${opponentLine}</p>
+        <div class="drop-locked">
+          🔒 Ouverture le ${formatDateTime(next.drop_at)}
+          <span class="countdown" data-drop-at="${next.drop_at}"></span>
+        </div>
+      `;
+      startCountdown();
+    }
+  } catch (e) {
+    // Page reste utilisable même si Supabase est indisponible.
+  }
+}
+
+function startCountdown() {
+  const tick = () => {
+    const el = document.querySelector(".countdown[data-drop-at]");
+    if (!el) return;
+    const diff = new Date(el.dataset.dropAt) - new Date();
+    if (diff <= 0) {
+      initDropWidget();
+      return;
+    }
+    const h = Math.floor(diff / 3600000);
+    const min = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    el.textContent = ` (dans ${h > 0 ? h + "h " : ""}${min}m ${s}s)`;
+    setTimeout(tick, 1000);
+  };
+  tick();
+}
+
+function formatDate(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function formatDateTime(isoString) {
+  const d = new Date(isoString);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} à ${pad(d.getHours())}h${pad(d.getMinutes())}`;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+initDropWidget();
+</script>
 
 </body>
 </html>

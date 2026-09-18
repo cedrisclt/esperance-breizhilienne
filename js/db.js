@@ -231,6 +231,41 @@ const db = (() => {
       return data;
     },
 
+    async getGoalsForMatch(matchId) {
+      assertConfigured();
+      const { data, error } = await client.from("goals").select("*").eq("match_id", matchId);
+      if (error) throw error;
+      return data;
+    },
+
+    async listAllGoals() {
+      assertConfigured();
+      const { data, error } = await client.from("goals").select("*");
+      if (error) throw error;
+      return data;
+    },
+
+    // count = 0 retire le buteur (pas de ligne à 0 en base).
+    async setGoals({ matchId, playerId, count }) {
+      assertConfigured();
+      if (!count || count <= 0) {
+        const { error } = await client
+          .from("goals")
+          .delete()
+          .eq("match_id", matchId)
+          .eq("player_id", playerId);
+        if (error) throw error;
+        return null;
+      }
+      const { data, error } = await client
+        .from("goals")
+        .upsert({ match_id: matchId, player_id: playerId, count }, { onConflict: "match_id,player_id" })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
     async voteMvp({ matchId, voterId, votedForId }) {
       assertConfigured();
       const { data, error } = await client

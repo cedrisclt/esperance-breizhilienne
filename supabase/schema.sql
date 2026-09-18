@@ -112,6 +112,19 @@ create table if not exists mvp_votes (
   unique (match_id, voter_id)
 );
 
+-- ────────────────────────── Résultats & buteurs ────────────────────
+-- Score final + qui a marqué, saisis à la main après chaque match.
+alter table matches add column if not exists score_us integer;
+alter table matches add column if not exists score_them integer;
+
+create table if not exists goals (
+  id uuid primary key default gen_random_uuid(),
+  match_id uuid not null references matches(id) on delete cascade,
+  player_id uuid not null references players(id) on delete cascade,
+  count integer not null default 1 check (count > 0),
+  unique (match_id, player_id)
+);
+
 -- ───────────────────────── Row Level Security ──────────────────────
 -- Pas d'authentification (accès via simple lien) : lecture ET écriture
 -- publiques pour la clé "anon". Convient à un usage d'équipe amateur,
@@ -122,6 +135,7 @@ alter table availability enable row level security;
 alter table lineups enable row level security;
 alter table lineup_slots enable row level security;
 alter table mvp_votes enable row level security;
+alter table goals enable row level security;
 
 drop policy if exists "public full access players" on players;
 create policy "public full access players" on players
@@ -147,8 +161,12 @@ drop policy if exists "public full access mvp_votes" on mvp_votes;
 create policy "public full access mvp_votes" on mvp_votes
   for all using (true) with check (true);
 
+drop policy if exists "public full access goals" on goals;
+create policy "public full access goals" on goals
+  for all using (true) with check (true);
+
 -- RLS policies alone don't grant access — Postgres still requires the
 -- base table privileges for the "anon" role used by the public API key.
 grant usage on schema public to anon, authenticated;
-grant select, insert, update, delete on players, matches, availability, lineups, lineup_slots, mvp_votes
+grant select, insert, update, delete on players, matches, availability, lineups, lineup_slots, mvp_votes, goals
   to anon, authenticated;

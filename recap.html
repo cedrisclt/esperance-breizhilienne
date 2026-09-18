@@ -22,6 +22,7 @@
       <a href="disponibilites.html">Disponibilités</a>
       <a href="compo.html">Compositions</a>
       <a href="mvp.html">MVP</a>
+      <a href="resultats.html">Résultats</a>
       <a href="recap.html" class="active">Récap</a>
     </nav>
   </div>
@@ -35,39 +36,26 @@
   </div>
 
   <section class="card">
-    <h2>🏆 Trophée MVP de la saison</h2>
+    <h2>Récap de la saison</h2>
     <p style="font-size:.82rem;color:var(--muted);margin-top:-8px">
-      Nombre de matchs où le joueur a été élu MVP (voir l'onglet <a href="mvp.html">MVP</a>). En cas
-      d'égalité de votes sur un match, tous les joueurs à égalité comptent le match.
+      Matchs joués = confirmé (pas en liste d'attente). Buts et MVP viennent des onglets
+      <a href="resultats.html">Résultats</a> et <a href="mvp.html">MVP</a>. 👑 = meilleur total MVP de la saison.
     </p>
-    <table class="calendar" id="mvpTable">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Joueur</th>
-          <th>MVP</th>
-        </tr>
-      </thead>
-      <tbody id="mvpBody"></tbody>
-    </table>
-  </section>
-
-  <section class="card">
-    <h2>Matchs joués par joueur</h2>
-    <p style="font-size:.82rem;color:var(--muted);margin-top:-8px">
-      Compte les matchs déjà passés où le joueur était confirmé (dedans, pas en liste d'attente).
-    </p>
-    <table class="calendar" id="recapTable">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Joueur</th>
-          <th>Poste</th>
-          <th>Matchs joués</th>
-        </tr>
-      </thead>
-      <tbody id="recapBody"></tbody>
-    </table>
+    <div style="overflow-x:auto">
+      <table class="calendar" id="recapTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Joueur</th>
+            <th>Poste</th>
+            <th>Matchs</th>
+            <th>Buts</th>
+            <th>MVP</th>
+          </tr>
+        </thead>
+        <tbody id="recapBody"></tbody>
+      </table>
+    </div>
   </section>
 
 </main>
@@ -88,21 +76,27 @@ async function init() {
     return;
   }
 
-  const [players, matches, availability, mvpVotes] = await Promise.all([
+  const [players, matches, availability, mvpVotes, goals] = await Promise.all([
     db.listPlayers(),
     db.listMatches(),
     db.listAllAvailability(),
     db.listAllMvpVotes(),
+    db.listAllGoals(),
   ]);
 
   const today = new Date().toISOString().slice(0, 10);
   const pastMatchIds = new Set(matches.filter((m) => m.match_date < today).map((m) => m.id));
 
-  const counts = Object.fromEntries(players.map((p) => [p.id, 0]));
+  const played = Object.fromEntries(players.map((p) => [p.id, 0]));
   for (const a of availability) {
     if (a.status === "disponible" && pastMatchIds.has(a.match_id)) {
-      counts[a.player_id] = (counts[a.player_id] || 0) + 1;
+      played[a.player_id] = (played[a.player_id] || 0) + 1;
     }
+  }
+
+  const goalCounts = Object.fromEntries(players.map((p) => [p.id, 0]));
+  for (const g of goals) {
+    goalCounts[g.player_id] = (goalCounts[g.player_id] || 0) + g.count;
   }
 
   // Pour chaque match, le(s) joueur(s) avec le plus de votes remporte(nt) le MVP du match.
@@ -120,36 +114,16 @@ async function init() {
     }
   }
 
-  const rankedMvp = players
-    .map((p) => ({ ...p, wins: mvpWins[p.id] || 0 }))
-    .filter((p) => p.wins > 0)
-    .sort((a, b) => b.wins - a.wins || a.name.localeCompare(b.name));
-
-  const mvpBody = document.getElementById("mvpBody");
-  mvpBody.innerHTML = "";
-  if (rankedMvp.length === 0) {
-    mvpBody.innerHTML = '<tr><td colspan="3" style="color:var(--muted)">Aucun vote MVP pour l\'instant.</td></tr>';
-  } else {
-    const topWins = rankedMvp[0].wins;
-    rankedMvp.forEach((p, i) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${i + 1}</td>
-        <td>${p.wins === topWins ? "👑 " : ""}${escapeHtml(p.name)}</td>
-        <td><strong>${p.wins}</strong></td>
-      `;
-      mvpBody.appendChild(tr);
-    });
-  }
-
   const ranked = players
-    .map((p) => ({ ...p, played: counts[p.id] || 0 }))
+    .map((p) => ({ ...p, played: played[p.id] || 0, goals: goalCounts[p.id] || 0, mvp: mvpWins[p.id] || 0 }))
     .sort((a, b) => b.played - a.played || a.name.localeCompare(b.name));
+
+  const topMvp = Math.max(0, ...ranked.map((p) => p.mvp));
 
   const body = document.getElementById("recapBody");
   body.innerHTML = "";
   if (ranked.length === 0) {
-    body.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">Aucun joueur pour le moment.</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" style="color:var(--muted)">Aucun joueur pour le moment.</td></tr>';
     return;
   }
   ranked.forEach((p, i) => {
@@ -159,6 +133,8 @@ async function init() {
       <td>${escapeHtml(p.name)}${p.priority ? " ⭐" : ""}</td>
       <td>${p.positions.map((pos) => `<span class="position-badge ${pos}">${POSITION_LABEL[pos]}</span>`).join(" ")}</td>
       <td><strong>${p.played}</strong></td>
+      <td>${p.goals}</td>
+      <td>${p.mvp > 0 && p.mvp === topMvp ? "👑 " : ""}${p.mvp}</td>
     `;
     body.appendChild(tr);
   });

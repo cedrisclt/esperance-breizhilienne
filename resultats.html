@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Résultats — Espérance Breizhilienne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-hero">
+  <div class="app-hero-inner">
+    <h1>Résultats</h1>
+    <p class="tagline">Espérance Breizhilienne — Foot à 7</p>
+    <nav class="app-nav">
+      <a href="index.html">Accueil</a>
+      <a href="equipe.html">Effectif</a>
+      <a href="matchs.html">Matchs</a>
+      <a href="disponibilites.html">Disponibilités</a>
+      <a href="compo.html">Compositions</a>
+      <a href="mvp.html">MVP</a>
+      <a href="resultats.html" class="active">Résultats</a>
+      <a href="recap.html">Récap</a>
+    </nav>
+  </div>
+</header>
+
+<main class="app-main">
+
+  <div id="configWarning" class="config-warning" style="display:none">
+    Supabase n'est pas configuré. Renseigne <code>js/config.js</code>, puis exécute
+    <code>supabase/schema.sql</code> dans l'éditeur SQL de ton projet Supabase.
+  </div>
+
+  <p style="font-size:.82rem;color:var(--muted)">
+    Score et buteurs à remplir à la main après chaque match. Le MVP affiché vient des votes de
+    l'onglet <a href="mvp.html">MVP</a>.
+  </p>
+
+  <div id="matchList" style="display:flex;flex-direction:column;gap:16px"></div>
+
+</main>
+
+<footer>
+  <p>Espérance Breizhilienne · Foot à 7 FSGT IDF</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script src="js/ui.js"></script>
+<script>
+let players = [];
+let playersById = {};
+
+async function init() {
+  if (!db.isConfigured()) {
+    document.getElementById("configWarning").style.display = "block";
+    return;
+  }
+  players = await db.listPlayers();
+  playersById = Object.fromEntries(players.map((p) => [p.id, p]));
+
+  const allMatches = await db.listMatches();
+  const today = new Date().toISOString().slice(0, 10);
+  const pastMatches = allMatches
+    .filter((m) => m.match_date < today)
+    .sort((a, b) => (a.match_date < b.match_date ? 1 : -1));
+
+  await renderMatches(pastMatches);
+}
+
+async function renderMatches(pastMatches) {
+  const list = document.getElementById("matchList");
+  list.innerHTML = "";
+
+  if (pastMatches.length === 0) {
+    list.innerHTML = '<p style="color:var(--muted);font-size:.9rem">Aucun match joué pour l\'instant.</p>';
+    return;
+  }
+
+  for (const m of pastMatches) {
+    const [availability, votes, goals] = await Promise.all([
+      db.getAvailabilityForMatch(m.id),
+      db.getMvpVotesForMatch(m.id),
+      db.getGoalsForMatch(m.id),
+    ]);
+    const participants = availability
+      .filter((a) => a.status === "disponible")
+      .map((a) => playersById[a.player_id])
+      .filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const goalsByPlayer = Object.fromEntries(goals.map((g) => [g.player_id, g.count]));
+
+    const tally = {};
+    for (const v of votes) tally[v.voted_for_id] = (tally[v.voted_for_id] || 0) + 1;
+    const maxVotes = Math.max(0, ...Object.values(tally));
+    const mvpNames = Object.entries(tally)
+      .filter(([, c]) => c === maxVotes && c > 0)
+      .map(([id]) => playersById[id]?.name)
+      .filter(Boolean);
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="match-competition">${escapeHtml(m.competition || "")}</div>
+      <div class="match-teams" style="margin-bottom:10px">
+        <span class="us">vs ${escapeHtml(m.opponent)}</span>
+      </div>
+      <div class="match-details" style="margin-bottom:14px">
+        <div><strong>Date</strong> ${formatDate(m.match_date)}</div>
+        <div><strong>MVP</strong> ${mvpNames.length ? "🏆 " + mvpNames.map(escapeHtml).join(", ") : "— (personne n'a encore voté)"}</div>
+      </div>
+
+      <div class="field">
+        <label>Score final</label>
+        <div class="score-row">
+          <span>Nous</span>
+          <input type="number" min="0" class="score-input" data-role="scoreUs" value="${m.score_us ?? ""}">
+          <span>—</span>
+          <input type="number" min="0" class="score-input" data-role="scoreThem" value="${m.score_them ?? ""}">
+          <span>Eux</span>
+          <button class="btn small" data-action="saveScore" type="button">Enregistrer</button>
+        </div>
+      </div>
+    `;
+
+    card.querySelector('[data-action="saveScore"]').addEventListener("click", async (e) => {
+      const scoreUs = card.querySelector('[data-role="scoreUs"]').value;
+      const scoreThem = card.querySelector('[data-role="scoreThem"]').value;
+      await db.updateMatch(m.id, {
+        score_us: scoreUs === "" ? null : parseInt(scoreUs, 10),
+        score_them: scoreThem === "" ? null : parseInt(scoreThem, 10),
+      });
+      showToast("Score enregistré.");
+    });
+
+    if (participants.length > 0) {
+      const goalsField = document.createElement("div");
+      goalsField.className = "field";
+      goalsField.innerHTML = `
+        <label>Buteurs</label>
+        <div class="scorers-list"></div>
+        <button class="btn small secondary" data-action="saveGoals" type="button" style="margin-top:8px">Enregistrer les buts</button>
+      `;
+      const scorersList = goalsField.querySelector(".scorers-list");
+      for (const p of participants) {
+        const row = document.createElement("div");
+        row.className = "scorer-row";
+        row.innerHTML = `
+          <span>${escapeHtml(p.name)}</span>
+          <input type="number" min="0" class="score-input small" data-player-id="${p.id}" value="${goalsByPlayer[p.id] || 0}">
+        `;
+        scorersList.appendChild(row);
+      }
+      goalsField.querySelector('[data-action="saveGoals"]').addEventListener("click", async () => {
+        const inputs = scorersList.querySelectorAll("input[data-player-id]");
+        await Promise.all(
+          Array.from(inputs).map((input) =>
+            db.setGoals({
+              matchId: m.id,
+              playerId: input.dataset.playerId,
+              count: parseInt(input.value, 10) || 0,
+            })
+          )
+        );
+        showToast("Buteurs enregistrés.");
+      });
+      card.appendChild(goalsField);
+    } else {
+      const note = document.createElement("p");
+      note.style.cssText = "font-size:.82rem;color:var(--muted);margin:0";
+      note.textContent = "Aucun participant enregistré pour ce match — pas de buteurs à saisir.";
+      card.appendChild(note);
+    }
+
+    list.appendChild(card);
+  }
+}
+
+function formatDate(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+init();
+</script>
+
+</body>
+</html>
