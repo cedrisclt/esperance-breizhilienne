@@ -21,6 +21,7 @@
       <a href="matchs.html">Matchs</a>
       <a href="disponibilites.html" class="active">Disponibilités</a>
       <a href="compo.html">Compositions</a>
+      <a href="recap.html">Récap</a>
     </nav>
   </div>
 </header>
@@ -61,10 +62,10 @@
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
 <script>
-const STATUS_LABEL = { disponible: "Disponible", incertain: "Incertain", indisponible: "Indisponible" };
 let players = [];
+let playersById = {};
 let matches = [];
-let availabilityByMatch = {}; // match_id -> array of {player_id, status}
+let availabilityByMatch = {}; // match_id -> array of {player_id, status, updated_at}
 
 function currentPlayerId() {
   return localStorage.getItem("eb_player_id") || "";
@@ -76,6 +77,7 @@ async function init() {
     return;
   }
   players = await db.listPlayers();
+  playersById = Object.fromEntries(players.map((p) => [p.id, p]));
   matches = await db.listMatches({ upcomingOnly: true });
 
   const whoSelect = document.getElementById("whoSelect");
@@ -96,6 +98,13 @@ async function init() {
 
   await loadAvailability();
   renderMatches();
+
+  // Rafraîchit périodiquement : fait apparaître le bouton au moment du
+  // drop sans recharger la page, et reflète les dispos des autres joueurs.
+  setInterval(async () => {
+    await loadAvailability();
+    renderMatches();
+  }, 20000);
 }
 
 async function loadAvailability() {
@@ -122,11 +131,19 @@ function renderMatches() {
     return;
   }
 
+  const now = new Date();
+
   for (const m of matches) {
     const availList = availabilityByMatch[m.id] || [];
     const mine = availList.find((a) => a.player_id === playerId);
-    const counts = { disponible: 0, incertain: 0, indisponible: 0 };
-    for (const a of availList) counts[a.status] = (counts[a.status] || 0) + 1;
+    const confirmed = availList
+      .filter((a) => a.status === "disponible")
+      .sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+    const waitlist = availList
+      .filter((a) => a.status === "liste_attente")
+      .sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+
+    const isOpen = !m.drop_at || new Date(m.drop_at) <= now;
 
     const card = document.createElement("div");
     card.className = "card";
@@ -139,32 +156,118 @@ function renderMatches() {
         <div><strong>Date</strong> ${formatDate(m.match_date)} ${m.match_time || ""}</div>
         <div><strong>Lieu</strong> ${escapeHtml(m.venue || "")}</div>
       </div>
-      <div class="status-buttons"></div>
-      <p style="font-size:.8rem;color:var(--muted);margin:10px 0 0">
-        ✅ ${counts.disponible} disponible(s) · ❓ ${counts.incertain} incertain(s) · ❌ ${counts.indisponible} indisponible(s)
-      </p>
+      <div class="drop-zone"></div>
     `;
 
-    const btnWrap = card.querySelector(".status-buttons");
-    for (const status of ["disponible", "incertain", "indisponible"]) {
+    const zone = card.querySelector(".drop-zone");
+
+    if (!isOpen) {
+      zone.innerHTML = `
+        <div class="drop-locked">
+          🔒 Dispos ouvertes le ${formatDateTime(m.drop_at)}
+          <span class="countdown" data-drop-at="${m.drop_at}"></span>
+        </div>
+      `;
+    } else {
+      const capLine = document.createElement("div");
+      capLine.style.marginBottom = "10px";
+      capLine.innerHTML = `<strong>${confirmed.length} / ${m.capacity}</strong> places prises`;
+      zone.appendChild(capLine);
+
       const btn = document.createElement("button");
-      btn.className = `status-btn ${status}${mine && mine.status === status ? " active" : ""}`;
-      btn.textContent = STATUS_LABEL[status];
-      btn.addEventListener("click", async () => {
-        await db.setAvailability({ matchId: m.id, playerId, status });
-        await loadAvailability();
-        renderMatches();
-      });
-      btnWrap.appendChild(btn);
+      btn.className = "btn";
+      btn.style.width = "100%";
+      btn.style.marginBottom = "10px";
+
+      if (mine && mine.status === "disponible") {
+        btn.textContent = "✅ Tu es dedans — Se désister";
+        btn.className = "btn secondary";
+        btn.style.width = "100%";
+        btn.addEventListener("click", async () => {
+          await db.withdraw({ matchId: m.id, playerId });
+          await loadAvailability();
+          renderMatches();
+        });
+      } else if (mine && mine.status === "liste_attente") {
+        const pos = waitlist.findIndex((a) => a.player_id === playerId) + 1;
+        btn.textContent = `🕒 Liste d'attente (position ${pos}) — Se désister`;
+        btn.className = "btn secondary";
+        btn.style.width = "100%";
+        btn.addEventListener("click", async () => {
+          await db.withdraw({ matchId: m.id, playerId });
+          await loadAvailability();
+          renderMatches();
+        });
+      } else {
+        btn.textContent = confirmed.length < m.capacity ? "Je suis dispo 🎯" : "Je suis dispo (liste d'attente)";
+        btn.addEventListener("click", async () => {
+          await db.claimSpot({ matchId: m.id, playerId, capacity: m.capacity });
+          await loadAvailability();
+          renderMatches();
+        });
+      }
+      zone.appendChild(btn);
+
+      const rosterWrap = document.createElement("div");
+      rosterWrap.innerHTML = `
+        <div class="roster-line"><strong>Dedans :</strong> ${
+          confirmed.length ? confirmed.map((a) => nameOf(a.player_id)).join(", ") : "personne pour l'instant"
+        }</div>
+        ${
+          waitlist.length
+            ? `<div class="roster-line"><strong>Liste d'attente :</strong> ${waitlist
+                .map((a) => nameOf(a.player_id))
+                .join(", ")}</div>`
+            : ""
+        }
+      `;
+      zone.appendChild(rosterWrap);
     }
 
     list.appendChild(card);
   }
+
+  startCountdowns();
+}
+
+function nameOf(playerId) {
+  return playersById[playerId] ? playersById[playerId].name : "?";
+}
+
+let countdownInterval = null;
+function startCountdowns() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  const tick = () => {
+    let anyDue = false;
+    document.querySelectorAll(".countdown[data-drop-at]").forEach((el) => {
+      const dropAt = new Date(el.dataset.dropAt);
+      const diff = dropAt - new Date();
+      if (diff <= 0) {
+        anyDue = true;
+        return;
+      }
+      const h = Math.floor(diff / 3600000);
+      const min = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      el.textContent = ` (dans ${h > 0 ? h + "h " : ""}${min}m ${s}s)`;
+    });
+    if (anyDue) {
+      loadAvailability().then(renderMatches);
+    }
+  };
+  tick();
+  countdownInterval = setInterval(tick, 1000);
 }
 
 function formatDate(dateStr) {
   const [y, m, d] = dateStr.split("-");
   return `${d}/${m}/${y}`;
+}
+
+function formatDateTime(isoString) {
+  const d = new Date(isoString);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} à ${pad(d.getHours())}h${pad(d.getMinutes())}`;
 }
 
 function escapeHtml(str) {

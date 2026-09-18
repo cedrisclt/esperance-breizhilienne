@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Récap — Espérance Breizhilienne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-hero">
+  <div class="app-hero-inner">
+    <h1>Récap</h1>
+    <p class="tagline">Espérance Breizhilienne — Foot à 7</p>
+    <nav class="app-nav">
+      <a href="index.html">Accueil</a>
+      <a href="equipe.html">Effectif</a>
+      <a href="matchs.html">Matchs</a>
+      <a href="disponibilites.html">Disponibilités</a>
+      <a href="compo.html">Compositions</a>
+      <a href="recap.html" class="active">Récap</a>
+    </nav>
+  </div>
+</header>
+
+<main class="app-main">
+
+  <div id="configWarning" class="config-warning" style="display:none">
+    Supabase n'est pas configuré. Renseigne <code>js/config.js</code>, puis exécute
+    <code>supabase/schema.sql</code> dans l'éditeur SQL de ton projet Supabase.
+  </div>
+
+  <section class="card">
+    <h2>Matchs joués par joueur</h2>
+    <p style="font-size:.82rem;color:var(--muted);margin-top:-8px">
+      Compte les matchs déjà passés où le joueur était confirmé (dedans, pas en liste d'attente).
+    </p>
+    <table class="calendar" id="recapTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Joueur</th>
+          <th>Poste</th>
+          <th>Matchs joués</th>
+        </tr>
+      </thead>
+      <tbody id="recapBody"></tbody>
+    </table>
+  </section>
+
+</main>
+
+<footer>
+  <p>Espérance Breizhilienne · Foot à 7 FSGT IDF</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script>
+const POSITION_LABEL = { GK: "Gardien", DEF: "Défenseur", MID: "Milieu", ATT: "Attaquant" };
+
+async function init() {
+  if (!db.isConfigured()) {
+    document.getElementById("configWarning").style.display = "block";
+    return;
+  }
+
+  const [players, matches, availability] = await Promise.all([
+    db.listPlayers(),
+    db.listMatches(),
+    db.listAllAvailability(),
+  ]);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const pastMatchIds = new Set(matches.filter((m) => m.match_date < today).map((m) => m.id));
+
+  const counts = Object.fromEntries(players.map((p) => [p.id, 0]));
+  for (const a of availability) {
+    if (a.status === "disponible" && pastMatchIds.has(a.match_id)) {
+      counts[a.player_id] = (counts[a.player_id] || 0) + 1;
+    }
+  }
+
+  const ranked = players
+    .map((p) => ({ ...p, played: counts[p.id] || 0 }))
+    .sort((a, b) => b.played - a.played || a.name.localeCompare(b.name));
+
+  const body = document.getElementById("recapBody");
+  body.innerHTML = "";
+  if (ranked.length === 0) {
+    body.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">Aucun joueur pour le moment.</td></tr>';
+    return;
+  }
+  ranked.forEach((p, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td>${escapeHtml(p.name)}</td>
+      <td><span class="position-badge ${p.position}">${POSITION_LABEL[p.position]}</span></td>
+      <td><strong>${p.played}</strong></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+init();
+</script>
+
+</body>
+</html>

@@ -14,6 +14,10 @@ create table if not exists players (
   created_at timestamptz not null default now()
 );
 
+-- Notes libres : postes secondaires, surnoms, particularités
+-- ("Ailier / Milieu / Gardien 5⭐️", "numéro 9", etc.)
+alter table players add column if not exists notes text;
+
 -- ───────────────────────────── Matchs ──────────────────────────────
 create table if not exists matches (
   id uuid primary key default gen_random_uuid(),
@@ -37,15 +41,29 @@ begin
   end if;
 end $$;
 
+-- "Drop" des dispos : les dispos ne sont ouvertes qu'à partir de drop_at
+-- (ex. mercredi 18h pour un match donné), et limitées à `capacity` places
+-- (9 par défaut : 7 titulaires + 2 remplaçants). drop_at NULL = ouvert
+-- immédiatement (utile pour les matchs déjà synchronisés par le scraper).
+alter table matches add column if not exists drop_at timestamptz;
+alter table matches add column if not exists capacity integer not null default 9;
+
 -- ────────────────────────── Disponibilités ─────────────────────────
 create table if not exists availability (
   id uuid primary key default gen_random_uuid(),
   match_id uuid not null references matches(id) on delete cascade,
   player_id uuid not null references players(id) on delete cascade,
-  status text not null check (status in ('disponible','indisponible','incertain')) default 'incertain',
+  status text not null default 'indisponible',
   updated_at timestamptz not null default now(),
   unique (match_id, player_id)
 );
+
+-- 'liste_attente' : le joueur a cliqué après que les `capacity` places
+-- soient prises. Remplace l'ancien statut 'incertain'.
+alter table availability drop constraint if exists availability_status_check;
+alter table availability
+  add constraint availability_status_check
+  check (status in ('disponible','indisponible','liste_attente'));
 
 -- ─────────────────────────── Compositions ──────────────────────────
 create table if not exists lineups (

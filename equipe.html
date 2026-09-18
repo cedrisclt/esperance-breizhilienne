@@ -21,6 +21,7 @@
       <a href="matchs.html">Matchs</a>
       <a href="disponibilites.html">Disponibilités</a>
       <a href="compo.html">Compositions</a>
+      <a href="recap.html">Récap</a>
     </nav>
   </div>
 </header>
@@ -54,6 +55,10 @@
       <div class="field">
         <label for="phone">Téléphone (optionnel)</label>
         <input id="phone" type="tel" placeholder="06 12 34 56 78">
+      </div>
+      <div class="field">
+        <label for="notes">Notes (postes secondaires, précisions...)</label>
+        <input id="notes" type="text" placeholder="Ex. Ailier / Milieu, remplit les gourdes">
       </div>
       <button class="btn" type="submit">Ajouter</button>
     </form>
@@ -96,18 +101,75 @@ async function renderPlayers() {
   for (const p of players) {
     const row = document.createElement("div");
     row.className = "player-row";
+    row.style.flexWrap = "wrap";
     row.innerHTML = `
       <span class="position-badge ${p.position}">${POSITION_LABEL[p.position]}</span>
-      <span class="player-name">${escapeHtml(p.name)}</span>
-      <button class="btn secondary small" data-id="${p.id}">Retirer</button>
+      <span class="player-name">
+        ${escapeHtml(p.name)}
+        ${p.notes ? `<span style="display:block;font-size:.78rem;color:var(--muted);font-weight:400">${escapeHtml(p.notes)}</span>` : ""}
+      </span>
+      <span style="display:flex;gap:6px">
+        <button class="btn secondary small" data-action="edit">Éditer</button>
+        <button class="btn secondary small" data-action="remove">Retirer</button>
+      </span>
     `;
-    row.querySelector("button").addEventListener("click", async () => {
+    row.querySelector('[data-action="remove"]').addEventListener("click", async () => {
       if (!confirm(`Retirer ${p.name} de l'effectif actif ?`)) return;
       await db.deactivatePlayer(p.id);
       renderPlayers();
     });
+    row.querySelector('[data-action="edit"]').addEventListener("click", () => {
+      renderEditForm(row, p);
+    });
     list.appendChild(row);
   }
+}
+
+function renderEditForm(row, p) {
+  row.innerHTML = "";
+  const form = document.createElement("form");
+  form.style.width = "100%";
+  form.innerHTML = `
+    <div class="form-row">
+      <div class="field">
+        <label>Nom</label>
+        <input name="name" type="text" value="${escapeAttr(p.name)}" required>
+      </div>
+      <div class="field">
+        <label>Poste</label>
+        <select name="position" autocomplete="off">
+          <option value="GK">Gardien</option>
+          <option value="DEF">Défenseur</option>
+          <option value="MID">Milieu</option>
+          <option value="ATT">Attaquant</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <input name="notes" type="text" value="${escapeAttr(p.notes || "")}">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn small" type="submit">Enregistrer</button>
+      <button class="btn secondary small" type="button" data-action="cancel">Annuler</button>
+    </div>
+  `;
+  form.querySelector('select[name="position"]').value = p.position;
+  form.querySelector('[data-action="cancel"]').addEventListener("click", renderPlayers);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await db.updatePlayer(p.id, {
+      name: form.name.value.trim(),
+      position: form.position.value,
+      notes: form.notes.value.trim() || null,
+    });
+    renderPlayers();
+  });
+  row.appendChild(form);
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/"/g, "&quot;");
 }
 
 function escapeHtml(str) {
@@ -121,8 +183,9 @@ document.getElementById("playerForm").addEventListener("submit", async (e) => {
   const name = document.getElementById("name").value.trim();
   const position = document.getElementById("position").value;
   const phone = document.getElementById("phone").value.trim();
+  const notes = document.getElementById("notes").value.trim();
   if (!name) return;
-  await db.addPlayer({ name, position, phone });
+  await db.addPlayer({ name, position, phone, notes });
   e.target.reset();
   document.getElementById("position").value = "MID";
   renderPlayers();

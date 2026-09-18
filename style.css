@@ -443,6 +443,32 @@ main.app-main {
 .status-btn.incertain.active { background: #e0a100; border-color: #e0a100; color: #fff; }
 .status-btn.indisponible.active { background: #c0392b; border-color: #c0392b; color: #fff; }
 
+.drop-locked {
+  background: var(--paper);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  font-size: .88rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+}
+
+.countdown {
+  font-weight: 700;
+  color: var(--violet);
+}
+
+.roster-line {
+  font-size: .82rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.roster-line strong {
+  color: var(--text);
+}
+
 .avail-row {
   display: flex;
   align-items: center;

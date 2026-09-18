@@ -34,11 +34,11 @@ const db = (() => {
       return data;
     },
 
-    async addPlayer({ name, position, phone }) {
+    async addPlayer({ name, position, phone, notes }) {
       assertConfigured();
       const { data, error } = await client
         .from("players")
-        .insert({ name, position, phone: phone || null })
+        .insert({ name, position, phone: phone || null, notes: notes || null })
         .select()
         .single();
       if (error) throw error;
@@ -73,11 +73,27 @@ const db = (() => {
       return data;
     },
 
-    async addMatch({ match_date, match_time, competition, opponent, home_away, venue }) {
+    async addMatch({ match_date, match_time, competition, opponent, home_away, venue, drop_at, capacity }) {
       assertConfigured();
       const { data, error } = await client
         .from("matches")
-        .insert({ match_date, match_time, competition, opponent, home_away, venue })
+        .insert({
+          match_date, match_time, competition, opponent, home_away, venue,
+          drop_at: drop_at || null,
+          capacity: capacity || 9,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
+    async updateMatch(id, patch) {
+      assertConfigured();
+      const { data, error } = await client
+        .from("matches")
+        .update(patch)
+        .eq("id", id)
         .select()
         .single();
       if (error) throw error;
@@ -127,6 +143,51 @@ const db = (() => {
         .single();
       if (error) throw error;
       return data;
+    },
+
+    async listAllAvailability() {
+      assertConfigured();
+      const { data, error } = await client.from("availability").select("*");
+      if (error) throw error;
+      return data;
+    },
+
+    // "Drop" : réclame une place. Confirmé si une place reste dans la
+    // capacité du match, sinon mis en liste d'attente. Meilleur effort
+    // côté client (pas de verrou atomique) — suffisant pour une équipe
+    // amateur, un léger dépassement ponctuel n'est pas dramatique.
+    async claimSpot({ matchId, playerId, capacity }) {
+      assertConfigured();
+      const current = await this.getAvailabilityForMatch(matchId);
+      const confirmedCount = current.filter(
+        (a) => a.status === "disponible" && a.player_id !== playerId
+      ).length;
+      const status = confirmedCount < capacity ? "disponible" : "liste_attente";
+      await this.setAvailability({ matchId, playerId, status });
+      return status;
+    },
+
+    // Se retire (indisponible). Si le joueur libère une place confirmée,
+    // le premier de la liste d'attente est automatiquement promu.
+    async withdraw({ matchId, playerId }) {
+      assertConfigured();
+      const current = await this.getAvailabilityForMatch(matchId);
+      const mine = current.find((a) => a.player_id === playerId);
+      const wasConfirmed = mine && mine.status === "disponible";
+      await this.setAvailability({ matchId, playerId, status: "indisponible" });
+
+      if (wasConfirmed) {
+        const waitlist = current
+          .filter((a) => a.status === "liste_attente" && a.player_id !== playerId)
+          .sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+        if (waitlist.length > 0) {
+          await this.setAvailability({
+            matchId,
+            playerId: waitlist[0].player_id,
+            status: "disponible",
+          });
+        }
+      }
     },
 
     async listLineupsForMatch(matchId) {

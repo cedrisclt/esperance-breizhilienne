@@ -21,6 +21,7 @@
       <a href="matchs.html">Matchs</a>
       <a href="disponibilites.html">Disponibilités</a>
       <a href="compo.html" class="active">Compositions</a>
+      <a href="recap.html">Récap</a>
     </nav>
   </div>
 </header>
@@ -209,7 +210,8 @@ function renderLineup() {
       const opt = document.createElement("option");
       opt.value = p.id;
       const status = availById[p.id];
-      const marker = status === "disponible" ? "✅" : status === "indisponible" ? "❌" : "❓";
+      const marker =
+        status === "disponible" ? "✅" : status === "liste_attente" ? "🕒" : status === "indisponible" ? "❌" : "❔";
       opt.textContent = `${marker} ${p.name}`;
       if (slotValues[slot.key] === p.id) opt.selected = true;
       select.appendChild(opt);

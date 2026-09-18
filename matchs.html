@@ -21,6 +21,7 @@
       <a href="matchs.html" class="active">Matchs</a>
       <a href="disponibilites.html">Disponibilités</a>
       <a href="compo.html">Compositions</a>
+      <a href="recap.html">Récap</a>
     </nav>
   </div>
 </header>
@@ -72,6 +73,19 @@
         <label for="venue">Lieu</label>
         <input id="venue" type="text" placeholder="Terrain, adresse">
       </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="dropAt">Ouverture des dispos ("drop")</label>
+          <input id="dropAt" type="datetime-local">
+        </div>
+        <div class="field">
+          <label for="capacity">Places (titulaires + rempl.)</label>
+          <input id="capacity" type="number" min="1" value="9">
+        </div>
+      </div>
+      <p style="font-size:.8rem;color:var(--muted);margin:-6px 0 14px">
+        Laisse "Ouverture des dispos" vide pour que les joueurs puissent se positionner tout de suite.
+      </p>
       <button class="btn" type="submit">Ajouter le match</button>
     </form>
   </section>
@@ -110,21 +124,85 @@ async function renderMatches() {
   for (const m of matches) {
     const row = document.createElement("div");
     row.className = "player-row";
+    row.style.flexWrap = "wrap";
+    const dropText = m.drop_at
+      ? `Drop : ${formatDateTime(m.drop_at)}`
+      : "Drop : ouvert immédiatement";
     row.innerHTML = `
       <span class="player-name">${formatDate(m.match_date)} ${m.match_time || ""} — vs ${escapeHtml(m.opponent)}
         <span style="display:block;font-size:.78rem;color:var(--muted);font-weight:400">
           ${escapeHtml(m.competition || "")} · ${escapeHtml(m.venue || "")}
         </span>
+        <span style="display:block;font-size:.78rem;color:var(--violet);font-weight:600">
+          ${dropText} · ${m.capacity} places
+        </span>
       </span>
-      <button class="btn secondary small" data-id="${m.id}">Supprimer</button>
+      <span style="display:flex;gap:6px">
+        <button class="btn secondary small" data-action="edit">Modifier</button>
+        <button class="btn secondary small" data-action="remove">Supprimer</button>
+      </span>
     `;
-    row.querySelector("button").addEventListener("click", async () => {
+    row.querySelector('[data-action="remove"]').addEventListener("click", async () => {
       if (!confirm("Supprimer ce match (et ses dispos/compos associées) ?")) return;
       await db.deleteMatch(m.id);
       renderMatches();
     });
+    row.querySelector('[data-action="edit"]').addEventListener("click", () => {
+      renderEditForm(row, m);
+    });
     list.appendChild(row);
   }
+}
+
+function renderEditForm(row, m) {
+  row.innerHTML = "";
+  row.style.display = "block";
+  const form = document.createElement("form");
+  form.innerHTML = `
+    <div class="form-row">
+      <div class="field">
+        <label>Ouverture des dispos ("drop")</label>
+        <input name="dropAt" type="datetime-local" value="${toLocalInputValue(m.drop_at)}">
+      </div>
+      <div class="field">
+        <label>Places</label>
+        <input name="capacity" type="number" min="1" value="${m.capacity}">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn small" type="submit">Enregistrer</button>
+      <button class="btn secondary small" type="button" data-action="cancel">Annuler</button>
+      <button class="btn secondary small" type="button" data-action="clear-drop">Retirer l'horaire (ouvrir tout de suite)</button>
+    </div>
+  `;
+  form.querySelector('[data-action="cancel"]').addEventListener("click", renderMatches);
+  form.querySelector('[data-action="clear-drop"]').addEventListener("click", async () => {
+    await db.updateMatch(m.id, { drop_at: null });
+    renderMatches();
+  });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const dropAtValue = form.dropAt.value;
+    await db.updateMatch(m.id, {
+      drop_at: dropAtValue ? new Date(dropAtValue).toISOString() : null,
+      capacity: parseInt(form.capacity.value, 10) || 9,
+    });
+    renderMatches();
+  });
+  row.appendChild(form);
+}
+
+function toLocalInputValue(isoString) {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatDateTime(isoString) {
+  const d = new Date(isoString);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} à ${pad(d.getHours())}h${pad(d.getMinutes())}`;
 }
 
 function formatDate(dateStr) {
@@ -140,6 +218,7 @@ function escapeHtml(str) {
 
 document.getElementById("matchForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const dropAtValue = document.getElementById("dropAt").value;
   await db.addMatch({
     match_date: document.getElementById("date").value,
     match_time: document.getElementById("time").value,
@@ -147,8 +226,11 @@ document.getElementById("matchForm").addEventListener("submit", async (e) => {
     opponent: document.getElementById("opponent").value.trim(),
     home_away: document.getElementById("homeAway").value,
     venue: document.getElementById("venue").value.trim(),
+    drop_at: dropAtValue ? new Date(dropAtValue).toISOString() : null,
+    capacity: parseInt(document.getElementById("capacity").value, 10) || 9,
   });
   e.target.reset();
+  document.getElementById("capacity").value = 9;
   renderMatches();
 });
 
