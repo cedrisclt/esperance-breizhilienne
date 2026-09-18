@@ -1,6 +1,7 @@
 :root {
   --violet: #5b2a86;
   --violet-dark: #3d1b5c;
+  --violet-bright: #8b4fd9;
   --noir: #16121a;
   --paper: #faf8fc;
   --card: #ffffff;
@@ -8,6 +9,8 @@
   --muted: #6b6274;
   --border: #e7e1ee;
   --radius: 14px;
+  --font-display: 'Anton', 'Poppins', sans-serif;
+  --ease: cubic-bezier(.22,.8,.32,1);
 }
 
 * { box-sizing: border-box; }
@@ -21,34 +24,42 @@ body {
 }
 
 .hero {
-  background: linear-gradient(160deg, var(--violet) 0%, var(--violet-dark) 55%, var(--noir) 100%);
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(700px 380px at 15% -10%, rgba(139,79,217,0.35), transparent 60%),
+    radial-gradient(600px 340px at 100% 10%, rgba(91,42,134,0.30), transparent 55%),
+    linear-gradient(160deg, var(--violet) 0%, var(--violet-dark) 55%, var(--noir) 100%);
   color: #fff;
   padding: 64px 20px 56px;
   text-align: center;
 }
 
-.hero-inner { max-width: 640px; margin: 0 auto; }
+.hero-inner { max-width: 640px; margin: 0 auto; position: relative; }
 
 .crest {
   width: 88px;
   height: 88px;
   margin: 0 auto 20px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.12);
+  background: radial-gradient(circle at 32% 28%, rgba(255,255,255,0.35), rgba(255,255,255,0.05));
   border: 2px solid rgba(255,255,255,0.5);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.1) inset, 0 16px 30px -10px rgba(139,79,217,0.7);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Poppins', sans-serif;
-  font-weight: 800;
-  font-size: 1.6rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.7rem;
   letter-spacing: 1px;
 }
 
 .hero h1 {
-  font-family: 'Poppins', sans-serif;
-  font-weight: 800;
-  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: .01em;
+  font-size: clamp(1.9rem, 5vw, 2.8rem);
   margin: 0 0 8px;
 }
 
@@ -88,11 +99,21 @@ main {
   border-radius: var(--radius);
   padding: 28px;
   box-shadow: 0 12px 30px -18px rgba(22,18,26,0.25);
+  transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .25s var(--ease);
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 38px -18px rgba(91,42,134,0.35);
+  border-color: rgba(139,79,217,0.35);
 }
 
 .card h2 {
-  font-family: 'Poppins', sans-serif;
-  font-size: 1.1rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  font-size: 1.15rem;
   margin: 0 0 18px;
   color: var(--violet-dark);
 }
@@ -111,9 +132,11 @@ main {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  font-family: 'Poppins', sans-serif;
-  font-weight: 700;
-  font-size: 1.15rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: .01em;
+  font-size: 1.2rem;
   margin-bottom: 16px;
 }
 
@@ -188,7 +211,12 @@ footer {
 /* ───────────────────────── App pages (nav, forms, pitch) ───────────────────────── */
 
 .app-hero {
-  background: linear-gradient(160deg, var(--violet) 0%, var(--violet-dark) 55%, var(--noir) 100%);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background:
+    radial-gradient(500px 260px at 10% -20%, rgba(139,79,217,0.35), transparent 60%),
+    linear-gradient(160deg, var(--violet) 0%, var(--violet-dark) 55%, var(--noir) 100%);
   color: #fff;
   padding: 28px 20px 22px;
 }
@@ -199,9 +227,11 @@ footer {
 }
 
 .app-hero h1 {
-  font-family: 'Poppins', sans-serif;
-  font-weight: 800;
-  font-size: 1.5rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  font-size: 1.7rem;
   margin: 0 0 4px;
 }
 
@@ -214,11 +244,18 @@ footer {
 nav.app-nav {
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   margin-top: 16px;
+  padding-bottom: 2px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
+nav.app-nav::-webkit-scrollbar { display: none; }
+
 nav.app-nav a {
+  flex: 0 0 auto;
   color: rgba(255,255,255,0.85);
   text-decoration: none;
   font-size: .85rem;
@@ -227,11 +264,20 @@ nav.app-nav a {
   border-radius: 20px;
   background: rgba(255,255,255,0.1);
   border: 1px solid rgba(255,255,255,0.2);
+  white-space: nowrap;
+  transition: background .2s var(--ease), color .2s var(--ease), border-color .2s var(--ease);
+}
+
+nav.app-nav a:hover {
+  background: rgba(255,255,255,0.18);
+  border-color: rgba(255,255,255,0.35);
 }
 
 nav.app-nav a.active {
   background: #fff;
   color: var(--violet-dark);
+  border-color: #fff;
+  box-shadow: 0 6px 16px -6px rgba(139,79,217,0.9);
 }
 
 main.app-main {
@@ -334,11 +380,16 @@ main.app-main {
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  background: var(--violet);
+  background: linear-gradient(135deg, var(--violet-bright), var(--violet));
   color: #fff;
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease);
 }
 
-.btn:hover { background: var(--violet-dark); }
+.btn:hover {
+  background: linear-gradient(135deg, var(--violet), var(--violet-dark));
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px -10px rgba(91,42,134,0.6);
+}
 .btn.secondary {
   background: var(--paper);
   color: var(--violet-dark);
