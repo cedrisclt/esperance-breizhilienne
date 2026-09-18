@@ -292,6 +292,18 @@ nav.app-nav {
 
 nav.app-nav::-webkit-scrollbar { display: none; }
 
+/* Above phone width there's room to spare — wrap onto extra rows
+   instead of relying on horizontal scroll, so no pill can ever end up
+   silently clipped at the edge of the scroll container (depends on
+   exact font metrics/zoom, unlike wrapping which always fits). */
+@media (min-width: 640px) {
+  nav.app-nav {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding-bottom: 0;
+  }
+}
+
 nav.app-nav a {
   flex: 0 0 auto;
   color: rgba(255,255,255,0.85);
