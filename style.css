@@ -17,7 +17,12 @@
 
 body {
   margin: 0;
-  background: var(--paper);
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 480px at 8% 0%, rgba(139,79,217,0.10), transparent 60%),
+    radial-gradient(700px 420px at 100% 12%, rgba(91,42,134,0.08), transparent 55%),
+    var(--paper);
+  background-attachment: fixed;
   color: var(--text);
   font-family: 'Inter', system-ui, sans-serif;
   line-height: 1.5;
@@ -94,6 +99,8 @@ main {
 }
 
 .card {
+  position: relative;
+  overflow: hidden;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -102,11 +109,26 @@ main {
   transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .25s var(--ease);
 }
 
+.card::before {
+  content: "";
+  position: absolute;
+  top: -70px;
+  right: -70px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139,79,217,0.16), transparent 70%);
+  pointer-events: none;
+  transition: opacity .25s var(--ease);
+}
+
 .card:hover {
   transform: translateY(-3px);
   box-shadow: 0 20px 38px -18px rgba(91,42,134,0.35);
   border-color: rgba(139,79,217,0.35);
 }
+
+.card:hover::before { opacity: 1.6; }
 
 .card h2 {
   font-family: var(--font-display);
