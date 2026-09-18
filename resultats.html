@@ -83,103 +83,153 @@ async function renderMatches(pastMatches) {
   }
 
   for (const m of pastMatches) {
-    const [availability, votes, goals] = await Promise.all([
-      db.getAvailabilityForMatch(m.id),
-      db.getMvpVotesForMatch(m.id),
-      db.getGoalsForMatch(m.id),
-    ]);
-    const participants = availability
-      .filter((a) => a.status === "disponible")
-      .map((a) => playersById[a.player_id])
-      .filter(Boolean)
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    const goalsByPlayer = Object.fromEntries(goals.map((g) => [g.player_id, g.count]));
-
-    const tally = {};
-    for (const v of votes) tally[v.voted_for_id] = (tally[v.voted_for_id] || 0) + 1;
-    const maxVotes = Math.max(0, ...Object.values(tally));
-    const mvpNames = Object.entries(tally)
-      .filter(([, c]) => c === maxVotes && c > 0)
-      .map(([id]) => playersById[id]?.name)
-      .filter(Boolean);
-
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <div class="match-competition">${escapeHtml(m.competition || "")}</div>
-      <div class="match-teams" style="margin-bottom:10px">
-        <span class="us">vs ${escapeHtml(m.opponent)}</span>
-      </div>
-      <div class="match-details" style="margin-bottom:14px">
-        <div><strong>Date</strong> ${formatDate(m.match_date)}</div>
-        <div><strong>MVP</strong> ${mvpNames.length ? "🏆 " + mvpNames.map(escapeHtml).join(", ") : "— (personne n'a encore voté)"}</div>
-      </div>
-
-      <div class="field">
-        <label>Score final</label>
-        <div class="score-row">
-          <span>Nous</span>
-          <input type="number" min="0" class="score-input" data-role="scoreUs" aria-label="Score de l'équipe" value="${m.score_us ?? ""}">
-          <span>—</span>
-          <input type="number" min="0" class="score-input" data-role="scoreThem" aria-label="Score de l'adversaire" value="${m.score_them ?? ""}">
-          <span>Eux</span>
-          <button class="btn small" data-action="saveScore" type="button">Enregistrer</button>
-        </div>
-      </div>
-    `;
-
-    card.querySelector('[data-action="saveScore"]').addEventListener("click", async (e) => {
-      const scoreUs = card.querySelector('[data-role="scoreUs"]').value;
-      const scoreThem = card.querySelector('[data-role="scoreThem"]').value;
-      await db.updateMatch(m.id, {
-        score_us: scoreUs === "" ? null : parseInt(scoreUs, 10),
-        score_them: scoreThem === "" ? null : parseInt(scoreThem, 10),
-      });
-      showToast("Score enregistré.");
-    });
-
-    if (participants.length > 0) {
-      const goalsField = document.createElement("div");
-      goalsField.className = "field";
-      goalsField.innerHTML = `
-        <label>Buteurs</label>
-        <div class="scorers-list"></div>
-        <button class="btn small secondary" data-action="saveGoals" type="button" style="margin-top:8px">Enregistrer les buts</button>
-      `;
-      const scorersList = goalsField.querySelector(".scorers-list");
-      for (const p of participants) {
-        const row = document.createElement("div");
-        row.className = "scorer-row";
-        row.innerHTML = `
-          <span>${escapeHtml(p.name)}</span>
-          <input type="number" min="0" class="score-input small" data-player-id="${p.id}" value="${goalsByPlayer[p.id] || 0}">
-        `;
-        scorersList.appendChild(row);
-      }
-      goalsField.querySelector('[data-action="saveGoals"]').addEventListener("click", async () => {
-        const inputs = scorersList.querySelectorAll("input[data-player-id]");
-        await Promise.all(
-          Array.from(inputs).map((input) =>
-            db.setGoals({
-              matchId: m.id,
-              playerId: input.dataset.playerId,
-              count: parseInt(input.value, 10) || 0,
-            })
-          )
-        );
-        showToast("Buteurs enregistrés.");
-      });
-      card.appendChild(goalsField);
-    } else {
-      const note = document.createElement("p");
-      note.style.cssText = "font-size:.82rem;color:var(--muted);margin:0";
-      note.textContent = "Aucun participant enregistré pour ce match — pas de buteurs à saisir.";
-      card.appendChild(note);
-    }
-
-    list.appendChild(card);
+    list.appendChild(await buildMatchCard(m));
   }
+}
+
+async function buildMatchCard(m) {
+  const [availability, votes, goals] = await Promise.all([
+    db.getAvailabilityForMatch(m.id),
+    db.getMvpVotesForMatch(m.id),
+    db.getGoalsForMatch(m.id),
+  ]);
+  const availableIds = new Set(availability.filter((a) => a.status === "disponible").map((a) => a.player_id));
+  const participants = players
+    .filter((p) => availableIds.has(p.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const goalsByPlayer = Object.fromEntries(goals.map((g) => [g.player_id, g.count]));
+
+  const tally = {};
+  for (const v of votes) tally[v.voted_for_id] = (tally[v.voted_for_id] || 0) + 1;
+  const maxVotes = Math.max(0, ...Object.values(tally));
+  const mvpNames = Object.entries(tally)
+    .filter(([, c]) => c === maxVotes && c > 0)
+    .map(([id]) => playersById[id]?.name)
+    .filter(Boolean);
+
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <div class="match-competition">${escapeHtml(m.competition || "")}</div>
+    <div class="match-teams" style="margin-bottom:10px">
+      <span class="us">vs ${escapeHtml(m.opponent)}</span>
+    </div>
+    <div class="match-details" style="margin-bottom:14px">
+      <div><strong>Date</strong> ${formatDate(m.match_date)}</div>
+      <div><strong>MVP</strong> ${mvpNames.length ? "🏆 " + mvpNames.map(escapeHtml).join(", ") : "— (personne n'a encore voté)"}</div>
+    </div>
+
+    <div class="field">
+      <label>Score final</label>
+      <div class="score-row">
+        <span>Nous</span>
+        <input type="number" min="0" class="score-input" data-role="scoreUs" aria-label="Score de l'équipe" value="${m.score_us ?? ""}">
+        <span>—</span>
+        <input type="number" min="0" class="score-input" data-role="scoreThem" aria-label="Score de l'adversaire" value="${m.score_them ?? ""}">
+        <span>Eux</span>
+        <button class="btn small" data-action="saveScore" type="button">Enregistrer</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <label style="margin:0">Équipe du match (${participants.length})</label>
+        <button class="btn secondary small" data-action="toggleTeam" type="button">Modifier l'équipe</button>
+      </div>
+      <div class="team-editor" style="display:none;margin-top:10px"></div>
+    </div>
+  `;
+
+  card.querySelector('[data-action="saveScore"]').addEventListener("click", async () => {
+    const scoreUs = card.querySelector('[data-role="scoreUs"]').value;
+    const scoreThem = card.querySelector('[data-role="scoreThem"]').value;
+    await db.updateMatch(m.id, {
+      score_us: scoreUs === "" ? null : parseInt(scoreUs, 10),
+      score_them: scoreThem === "" ? null : parseInt(scoreThem, 10),
+    });
+    showToast("Score enregistré.");
+  });
+
+  const teamEditor = card.querySelector(".team-editor");
+  card.querySelector('[data-action="toggleTeam"]').addEventListener("click", (e) => {
+    const isHidden = teamEditor.style.display === "none";
+    if (isHidden && teamEditor.innerHTML === "") {
+      teamEditor.innerHTML = `
+        <div class="checkbox-group">
+          ${players
+            .map(
+              (p) =>
+                `<label><input type="checkbox" value="${p.id}" ${availableIds.has(p.id) ? "checked" : ""}> ${escapeHtml(p.name)}</label>`
+            )
+            .join("")}
+        </div>
+        <button class="btn small" data-action="saveTeam" type="button" style="margin-top:10px">Enregistrer l'équipe</button>
+      `;
+      teamEditor.querySelector('[data-action="saveTeam"]').addEventListener("click", async () => {
+        const checked = new Set(
+          Array.from(teamEditor.querySelectorAll('input[type="checkbox"]:checked')).map((c) => c.value)
+        );
+        await Promise.all(
+          players.map((p) => {
+            const shouldPlay = checked.has(p.id);
+            const wasPlaying = availableIds.has(p.id);
+            if (shouldPlay === wasPlaying) return null;
+            return db.setAvailability({
+              matchId: m.id,
+              playerId: p.id,
+              status: shouldPlay ? "disponible" : "indisponible",
+            });
+          })
+        );
+        showToast("Équipe mise à jour.");
+        card.replaceWith(await buildMatchCard(m));
+      });
+    }
+    teamEditor.style.display = isHidden ? "block" : "none";
+    e.target.textContent = isHidden ? "Fermer" : "Modifier l'équipe";
+  });
+
+  if (participants.length > 0) {
+    const goalsField = document.createElement("div");
+    goalsField.className = "field";
+    goalsField.innerHTML = `
+      <label>Buteurs</label>
+      <div class="scorers-list"></div>
+      <button class="btn small secondary" data-action="saveGoals" type="button" style="margin-top:8px">Enregistrer les buts</button>
+    `;
+    const scorersList = goalsField.querySelector(".scorers-list");
+    for (const p of participants) {
+      const row = document.createElement("div");
+      row.className = "scorer-row";
+      row.innerHTML = `
+        <span>${escapeHtml(p.name)}</span>
+        <input type="number" min="0" class="score-input small" data-player-id="${p.id}" value="${goalsByPlayer[p.id] || 0}">
+      `;
+      scorersList.appendChild(row);
+    }
+    goalsField.querySelector('[data-action="saveGoals"]').addEventListener("click", async () => {
+      const inputs = scorersList.querySelectorAll("input[data-player-id]");
+      await Promise.all(
+        Array.from(inputs).map((input) =>
+          db.setGoals({
+            matchId: m.id,
+            playerId: input.dataset.playerId,
+            count: parseInt(input.value, 10) || 0,
+          })
+        )
+      );
+      showToast("Buteurs enregistrés.");
+    });
+    card.appendChild(goalsField);
+  } else {
+    const note = document.createElement("p");
+    note.style.cssText = "font-size:.82rem;color:var(--muted);margin:0";
+    note.textContent = "Aucun participant enregistré pour ce match — pas de buteurs à saisir.";
+    card.appendChild(note);
+  }
+
+  return card;
 }
 
 function formatDate(dateStr) {
