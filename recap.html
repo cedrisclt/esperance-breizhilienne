@@ -21,6 +21,7 @@
       <a href="matchs.html">Matchs</a>
       <a href="disponibilites.html">Disponibilités</a>
       <a href="compo.html">Compositions</a>
+      <a href="mvp.html">MVP</a>
       <a href="recap.html" class="active">Récap</a>
     </nav>
   </div>
@@ -32,6 +33,24 @@
     Supabase n'est pas configuré. Renseigne <code>js/config.js</code>, puis exécute
     <code>supabase/schema.sql</code> dans l'éditeur SQL de ton projet Supabase.
   </div>
+
+  <section class="card">
+    <h2>🏆 Trophée MVP de la saison</h2>
+    <p style="font-size:.82rem;color:var(--muted);margin-top:-8px">
+      Nombre de matchs où le joueur a été élu MVP (voir l'onglet <a href="mvp.html">MVP</a>). En cas
+      d'égalité de votes sur un match, tous les joueurs à égalité comptent le match.
+    </p>
+    <table class="calendar" id="mvpTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Joueur</th>
+          <th>MVP</th>
+        </tr>
+      </thead>
+      <tbody id="mvpBody"></tbody>
+    </table>
+  </section>
 
   <section class="card">
     <h2>Matchs joués par joueur</h2>
@@ -69,10 +88,11 @@ async function init() {
     return;
   }
 
-  const [players, matches, availability] = await Promise.all([
+  const [players, matches, availability, mvpVotes] = await Promise.all([
     db.listPlayers(),
     db.listMatches(),
     db.listAllAvailability(),
+    db.listAllMvpVotes(),
   ]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -83,6 +103,43 @@ async function init() {
     if (a.status === "disponible" && pastMatchIds.has(a.match_id)) {
       counts[a.player_id] = (counts[a.player_id] || 0) + 1;
     }
+  }
+
+  // Pour chaque match, le(s) joueur(s) avec le plus de votes remporte(nt) le MVP du match.
+  const votesByMatch = {};
+  for (const v of mvpVotes) {
+    if (!pastMatchIds.has(v.match_id)) continue;
+    (votesByMatch[v.match_id] ||= {})[v.voted_for_id] = (votesByMatch[v.match_id]?.[v.voted_for_id] || 0) + 1;
+  }
+  const mvpWins = Object.fromEntries(players.map((p) => [p.id, 0]));
+  for (const tally of Object.values(votesByMatch)) {
+    const max = Math.max(...Object.values(tally));
+    if (max === 0) continue;
+    for (const [playerId, count] of Object.entries(tally)) {
+      if (count === max) mvpWins[playerId] = (mvpWins[playerId] || 0) + 1;
+    }
+  }
+
+  const rankedMvp = players
+    .map((p) => ({ ...p, wins: mvpWins[p.id] || 0 }))
+    .filter((p) => p.wins > 0)
+    .sort((a, b) => b.wins - a.wins || a.name.localeCompare(b.name));
+
+  const mvpBody = document.getElementById("mvpBody");
+  mvpBody.innerHTML = "";
+  if (rankedMvp.length === 0) {
+    mvpBody.innerHTML = '<tr><td colspan="3" style="color:var(--muted)">Aucun vote MVP pour l\'instant.</td></tr>';
+  } else {
+    const topWins = rankedMvp[0].wins;
+    rankedMvp.forEach((p, i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${i + 1}</td>
+        <td>${p.wins === topWins ? "👑 " : ""}${escapeHtml(p.name)}</td>
+        <td><strong>${p.wins}</strong></td>
+      `;
+      mvpBody.appendChild(tr);
+    });
   }
 
   const ranked = players

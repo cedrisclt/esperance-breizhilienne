@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MVP — Espérance Breizhilienne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-hero">
+  <div class="app-hero-inner">
+    <h1>MVP</h1>
+    <p class="tagline">Espérance Breizhilienne — Foot à 7</p>
+    <nav class="app-nav">
+      <a href="index.html">Accueil</a>
+      <a href="equipe.html">Effectif</a>
+      <a href="matchs.html">Matchs</a>
+      <a href="disponibilites.html">Disponibilités</a>
+      <a href="compo.html">Compositions</a>
+      <a href="mvp.html" class="active">MVP</a>
+      <a href="recap.html">Récap</a>
+    </nav>
+  </div>
+</header>
+
+<main class="app-main">
+
+  <div id="configWarning" class="config-warning" style="display:none">
+    Supabase n'est pas configuré. Renseigne <code>js/config.js</code>, puis exécute
+    <code>supabase/schema.sql</code> dans l'éditeur SQL de ton projet Supabase.
+  </div>
+
+  <section class="card" id="whoCard">
+    <h2>Qui es-tu ?</h2>
+    <div class="field">
+      <label for="whoSelect">Ton nom</label>
+      <select id="whoSelect" autocomplete="off">
+        <option value="">— Choisis ton nom —</option>
+      </select>
+    </div>
+    <p style="font-size:.82rem;color:var(--muted);margin:0">
+      Vote pour le MVP de chaque match déjà joué. Un vote par match, modifiable tant que tu veux.
+    </p>
+  </section>
+
+  <section id="matchesSection" style="display:none">
+    <h2 style="margin: 0 0 10px">Matchs joués</h2>
+    <div id="matchList" style="display:flex;flex-direction:column;gap:16px"></div>
+  </section>
+
+</main>
+
+<footer>
+  <p>Espérance Breizhilienne · Foot à 7 FSGT IDF</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script src="js/ui.js"></script>
+<script>
+let players = [];
+let playersById = {};
+let pastMatches = [];
+let availabilityByMatch = {};
+let votesByMatch = {};
+
+function currentPlayerId() {
+  return localStorage.getItem("eb_player_id") || "";
+}
+
+async function init() {
+  if (!db.isConfigured()) {
+    document.getElementById("configWarning").style.display = "block";
+    return;
+  }
+  players = await db.listPlayers();
+  playersById = Object.fromEntries(players.map((p) => [p.id, p]));
+
+  const allMatches = await db.listMatches();
+  const today = new Date().toISOString().slice(0, 10);
+  pastMatches = allMatches.filter((m) => m.match_date < today).sort((a, b) => (a.match_date < b.match_date ? 1 : -1));
+
+  const whoSelect = document.getElementById("whoSelect");
+  for (const p of players) {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.name;
+    whoSelect.appendChild(opt);
+  }
+  const saved = currentPlayerId();
+  if (saved && players.some((p) => p.id === saved)) {
+    whoSelect.value = saved;
+  }
+  whoSelect.addEventListener("change", () => {
+    localStorage.setItem("eb_player_id", whoSelect.value);
+    renderMatches();
+  });
+
+  await loadData();
+  renderMatches();
+}
+
+async function loadData() {
+  availabilityByMatch = {};
+  votesByMatch = {};
+  for (const m of pastMatches) {
+    availabilityByMatch[m.id] = await db.getAvailabilityForMatch(m.id);
+    votesByMatch[m.id] = await db.getMvpVotesForMatch(m.id);
+  }
+}
+
+function renderMatches() {
+  const section = document.getElementById("matchesSection");
+  const playerId = currentPlayerId();
+  if (!playerId) {
+    section.style.display = "none";
+    return;
+  }
+  section.style.display = "block";
+
+  const list = document.getElementById("matchList");
+  list.innerHTML = "";
+
+  if (pastMatches.length === 0) {
+    list.innerHTML = '<p style="color:var(--muted);font-size:.9rem">Aucun match joué pour l\'instant.</p>';
+    return;
+  }
+
+  for (const m of pastMatches) {
+    const participants = (availabilityByMatch[m.id] || [])
+      .filter((a) => a.status === "disponible")
+      .map((a) => playersById[a.player_id])
+      .filter(Boolean);
+    const votes = votesByMatch[m.id] || [];
+    const myVote = votes.find((v) => v.voter_id === playerId);
+    const iPlayed = participants.some((p) => p.id === playerId);
+
+    const tally = {};
+    for (const v of votes) tally[v.voted_for_id] = (tally[v.voted_for_id] || 0) + 1;
+    const maxVotes = Math.max(0, ...Object.values(tally));
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="match-competition">${escapeHtml(m.competition || "")}</div>
+      <div class="match-teams" style="margin-bottom:10px">
+        <span class="us">vs ${escapeHtml(m.opponent)}</span>
+      </div>
+      <div class="match-details" style="margin-bottom:14px">
+        <div><strong>Date</strong> ${formatDate(m.match_date)}</div>
+      </div>
+    `;
+
+    if (participants.length === 0) {
+      card.innerHTML += '<p style="font-size:.85rem;color:var(--muted);margin:0">Aucun participant enregistré pour ce match.</p>';
+      list.appendChild(card);
+      continue;
+    }
+
+    if (!iPlayed) {
+      card.innerHTML += '<p style="font-size:.85rem;color:var(--muted);margin:0 0 10px">Tu n\'étais pas dans ce match, vote réservé aux participants.</p>';
+    }
+
+    const mvpList = document.createElement("div");
+    mvpList.style.display = "flex";
+    mvpList.style.flexDirection = "column";
+    mvpList.style.gap = "8px";
+
+    for (const p of participants) {
+      if (p.id === playerId) continue; // pas d'auto-vote
+      const count = tally[p.id] || 0;
+      const isLeader = count > 0 && count === maxVotes;
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "mvp-option" + (myVote && myVote.voted_for_id === p.id ? " selected" : "");
+      row.disabled = !iPlayed;
+      row.innerHTML = `
+        <span>${isLeader ? "👑 " : ""}${escapeHtml(p.name)}</span>
+        <span class="mvp-count">${count}</span>
+      `;
+      row.addEventListener("click", async () => {
+        await db.voteMvp({ matchId: m.id, voterId: playerId, votedForId: p.id });
+        await loadData();
+        renderMatches();
+      });
+      mvpList.appendChild(row);
+    }
+
+    card.appendChild(mvpList);
+    list.appendChild(card);
+  }
+}
+
+function formatDate(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+init();
+</script>
+
+</body>
+</html>

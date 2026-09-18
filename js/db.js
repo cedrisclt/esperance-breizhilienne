@@ -217,6 +217,34 @@ const db = (() => {
       }
     },
 
+    async getMvpVotesForMatch(matchId) {
+      assertConfigured();
+      const { data, error } = await client.from("mvp_votes").select("*").eq("match_id", matchId);
+      if (error) throw error;
+      return data;
+    },
+
+    async listAllMvpVotes() {
+      assertConfigured();
+      const { data, error } = await client.from("mvp_votes").select("*");
+      if (error) throw error;
+      return data;
+    },
+
+    async voteMvp({ matchId, voterId, votedForId }) {
+      assertConfigured();
+      const { data, error } = await client
+        .from("mvp_votes")
+        .upsert(
+          { match_id: matchId, voter_id: voterId, voted_for_id: votedForId },
+          { onConflict: "match_id,voter_id" }
+        )
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
     async listLineupsForMatch(matchId) {
       assertConfigured();
       const { data, error } = await client

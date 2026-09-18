@@ -99,6 +99,19 @@ create table if not exists lineup_slots (
   unique (lineup_id, slot_key)
 );
 
+-- ─────────────────────────────── MVP ───────────────────────────────
+-- Un vote par joueur et par match, pour élire le MVP de ce match.
+-- Le gagnant du match = joueur(s) avec le plus de votes ; en fin de
+-- saison, celui avec le plus de matchs remportés gagne le cadeau.
+create table if not exists mvp_votes (
+  id uuid primary key default gen_random_uuid(),
+  match_id uuid not null references matches(id) on delete cascade,
+  voter_id uuid not null references players(id) on delete cascade,
+  voted_for_id uuid not null references players(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (match_id, voter_id)
+);
+
 -- ───────────────────────── Row Level Security ──────────────────────
 -- Pas d'authentification (accès via simple lien) : lecture ET écriture
 -- publiques pour la clé "anon". Convient à un usage d'équipe amateur,
@@ -108,6 +121,7 @@ alter table matches enable row level security;
 alter table availability enable row level security;
 alter table lineups enable row level security;
 alter table lineup_slots enable row level security;
+alter table mvp_votes enable row level security;
 
 drop policy if exists "public full access players" on players;
 create policy "public full access players" on players
@@ -129,8 +143,12 @@ drop policy if exists "public full access lineup_slots" on lineup_slots;
 create policy "public full access lineup_slots" on lineup_slots
   for all using (true) with check (true);
 
+drop policy if exists "public full access mvp_votes" on mvp_votes;
+create policy "public full access mvp_votes" on mvp_votes
+  for all using (true) with check (true);
+
 -- RLS policies alone don't grant access — Postgres still requires the
 -- base table privileges for the "anon" role used by the public API key.
 grant usage on schema public to anon, authenticated;
-grant select, insert, update, delete on players, matches, availability, lineups, lineup_slots
+grant select, insert, update, delete on players, matches, availability, lineups, lineup_slots, mvp_votes
   to anon, authenticated;
