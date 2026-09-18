@@ -34,14 +34,13 @@ const db = (() => {
       return data;
     },
 
-    async addPlayer({ name, positions, phone, notes, priority }) {
+    async addPlayer({ name, positions, notes, priority }) {
       assertConfigured();
       const { data, error } = await client
         .from("players")
         .insert({
           name,
           positions,
-          phone: phone || null,
           notes: notes || null,
           priority: !!priority,
         })
