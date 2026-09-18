@@ -93,3 +93,9 @@ create policy "public full access lineups" on lineups
 drop policy if exists "public full access lineup_slots" on lineup_slots;
 create policy "public full access lineup_slots" on lineup_slots
   for all using (true) with check (true);
+
+-- RLS policies alone don't grant access — Postgres still requires the
+-- base table privileges for the "anon" role used by the public API key.
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on players, matches, availability, lineups, lineup_slots
+  to anon, authenticated;

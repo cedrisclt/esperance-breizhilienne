@@ -3,6 +3,6 @@
 // Remplace les deux valeurs ci-dessous après avoir créé ton projet sur
 // https://supabase.com (Project Settings > API).
 window.SUPABASE_CONFIG = {
-  url: "https://YOUR-PROJECT.supabase.co",
-  anonKey: "YOUR-ANON-KEY",
+  url: "https://dviosahgckstxwjnzmfq.supabase.co",
+  anonKey: "sb_publishable_FGNFLb6TbXwplhN1vl5kHQ_680xhUFB",
 };
