@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Effectif — Espérance Breizhilienne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-hero">
+  <div class="app-hero-inner">
+    <h1>Effectif</h1>
+    <p class="tagline">Espérance Breizhilienne — Foot à 7</p>
+    <nav class="app-nav">
+      <a href="index.html">Accueil</a>
+      <a href="equipe.html" class="active">Effectif</a>
+      <a href="matchs.html">Matchs</a>
+      <a href="disponibilites.html">Disponibilités</a>
+      <a href="compo.html">Compositions</a>
+    </nav>
+  </div>
+</header>
+
+<main class="app-main">
+
+  <div id="configWarning" class="config-warning" style="display:none">
+    Supabase n'est pas configuré. Renseigne <code>js/config.js</code> avec l'URL et la clé anon de ton
+    projet Supabase (créé sur <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a>),
+    puis exécute <code>supabase/schema.sql</code> dans l'éditeur SQL du projet.
+  </div>
+
+  <section class="card">
+    <h2>Ajouter un joueur</h2>
+    <form id="playerForm">
+      <div class="form-row">
+        <div class="field">
+          <label for="name">Nom</label>
+          <input id="name" type="text" required placeholder="Ex. Noé Harreyron">
+        </div>
+        <div class="field">
+          <label for="position">Poste</label>
+          <select id="position" required>
+            <option value="GK">Gardien</option>
+            <option value="DEF">Défenseur</option>
+            <option value="MID" selected>Milieu</option>
+            <option value="ATT">Attaquant</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="phone">Téléphone (optionnel)</label>
+        <input id="phone" type="tel" placeholder="06 12 34 56 78">
+      </div>
+      <button class="btn" type="submit">Ajouter</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Joueurs (<span id="playerCount">0</span>)</h2>
+    <div id="playerList"></div>
+  </section>
+
+</main>
+
+<footer>
+  <p>Espérance Breizhilienne · Foot à 7 FSGT IDF</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script>
+const POSITION_LABEL = { GK: "Gardien", DEF: "Défenseur", MID: "Milieu", ATT: "Attaquant" };
+
+async function init() {
+  if (!db.isConfigured()) {
+    document.getElementById("configWarning").style.display = "block";
+    return;
+  }
+  await renderPlayers();
+}
+
+async function renderPlayers() {
+  const players = await db.listPlayers();
+  document.getElementById("playerCount").textContent = players.length;
+  const list = document.getElementById("playerList");
+  list.innerHTML = "";
+  if (players.length === 0) {
+    list.innerHTML = '<p style="color:var(--muted);font-size:.9rem">Aucun joueur pour le moment.</p>';
+    return;
+  }
+  for (const p of players) {
+    const row = document.createElement("div");
+    row.className = "player-row";
+    row.innerHTML = `
+      <span class="position-badge ${p.position}">${POSITION_LABEL[p.position]}</span>
+      <span class="player-name">${escapeHtml(p.name)}</span>
+      <button class="btn secondary small" data-id="${p.id}">Retirer</button>
+    `;
+    row.querySelector("button").addEventListener("click", async () => {
+      if (!confirm(`Retirer ${p.name} de l'effectif actif ?`)) return;
+      await db.deactivatePlayer(p.id);
+      renderPlayers();
+    });
+    list.appendChild(row);
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+document.getElementById("playerForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = document.getElementById("name").value.trim();
+  const position = document.getElementById("position").value;
+  const phone = document.getElementById("phone").value.trim();
+  if (!name) return;
+  await db.addPlayer({ name, position, phone });
+  e.target.reset();
+  document.getElementById("position").value = "MID";
+  renderPlayers();
+});
+
+init();
+</script>
+
+</body>
+</html>

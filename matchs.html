@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matchs — Espérance Breizhilienne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-hero">
+  <div class="app-hero-inner">
+    <h1>Matchs</h1>
+    <p class="tagline">Espérance Breizhilienne — Foot à 7</p>
+    <nav class="app-nav">
+      <a href="index.html">Accueil</a>
+      <a href="equipe.html">Effectif</a>
+      <a href="matchs.html" class="active">Matchs</a>
+      <a href="disponibilites.html">Disponibilités</a>
+      <a href="compo.html">Compositions</a>
+    </nav>
+  </div>
+</header>
+
+<main class="app-main">
+
+  <div id="configWarning" class="config-warning" style="display:none">
+    Supabase n'est pas configuré. Renseigne <code>js/config.js</code>, puis exécute
+    <code>supabase/schema.sql</code> dans l'éditeur SQL de ton projet Supabase.
+  </div>
+
+  <div class="config-warning" style="background:#eef0ff;border-color:#c9cdf5;color:#2d3178">
+    Les matchs officiels FSGT sont ajoutés automatiquement chaque jour par
+    <code>scrape_calendar.py</code> une fois Supabase configuré (voir README). Ce formulaire sert pour
+    les matchs amicaux ou une correction ponctuelle.
+  </div>
+
+  <section class="card">
+    <h2>Ajouter un match</h2>
+    <form id="matchForm">
+      <div class="form-row">
+        <div class="field">
+          <label for="date">Date</label>
+          <input id="date" type="date" required>
+        </div>
+        <div class="field">
+          <label for="time">Heure</label>
+          <input id="time" type="time">
+        </div>
+      </div>
+      <div class="field">
+        <label for="competition">Compétition</label>
+        <input id="competition" type="text" placeholder="Ex. Championnat, Coupe, Amical">
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="opponent">Adversaire</label>
+          <input id="opponent" type="text" required placeholder="Nom de l'équipe adverse">
+        </div>
+        <div class="field">
+          <label for="homeAway">Domicile / Extérieur</label>
+          <select id="homeAway">
+            <option value="domicile">Domicile</option>
+            <option value="exterieur">Extérieur</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="venue">Lieu</label>
+        <input id="venue" type="text" placeholder="Terrain, adresse">
+      </div>
+      <button class="btn" type="submit">Ajouter le match</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Matchs à venir</h2>
+    <div id="matchList"></div>
+  </section>
+
+</main>
+
+<footer>
+  <p>Espérance Breizhilienne · Foot à 7 FSGT IDF</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script>
+async function init() {
+  if (!db.isConfigured()) {
+    document.getElementById("configWarning").style.display = "block";
+    return;
+  }
+  await renderMatches();
+}
+
+async function renderMatches() {
+  const matches = await db.listMatches({ upcomingOnly: true });
+  const list = document.getElementById("matchList");
+  list.innerHTML = "";
+  if (matches.length === 0) {
+    list.innerHTML = '<p style="color:var(--muted);font-size:.9rem">Aucun match à venir.</p>';
+    return;
+  }
+  for (const m of matches) {
+    const row = document.createElement("div");
+    row.className = "player-row";
+    row.innerHTML = `
+      <span class="player-name">${formatDate(m.match_date)} ${m.match_time || ""} — vs ${escapeHtml(m.opponent)}
+        <span style="display:block;font-size:.78rem;color:var(--muted);font-weight:400">
+          ${escapeHtml(m.competition || "")} · ${escapeHtml(m.venue || "")}
+        </span>
+      </span>
+      <button class="btn secondary small" data-id="${m.id}">Supprimer</button>
+    `;
+    row.querySelector("button").addEventListener("click", async () => {
+      if (!confirm("Supprimer ce match (et ses dispos/compos associées) ?")) return;
+      await db.deleteMatch(m.id);
+      renderMatches();
+    });
+    list.appendChild(row);
+  }
+}
+
+function formatDate(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+document.getElementById("matchForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  await db.addMatch({
+    match_date: document.getElementById("date").value,
+    match_time: document.getElementById("time").value,
+    competition: document.getElementById("competition").value.trim(),
+    opponent: document.getElementById("opponent").value.trim(),
+    home_away: document.getElementById("homeAway").value,
+    venue: document.getElementById("venue").value.trim(),
+  });
+  e.target.reset();
+  renderMatches();
+});
+
+init();
+</script>
+
+</body>
+</html>

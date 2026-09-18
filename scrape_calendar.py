@@ -20,6 +20,7 @@ TEAM_NAME = "ESPERANCE BREIZHILIENNE"
 TEAM_NAME_DISPLAY = "Espérance Breizhilienne"
 HERE = Path(__file__).resolve().parent
 INDEX_HTML = HERE / "index.html"
+CONFIG_JS = HERE / "js" / "config.js"
 
 
 def pretty_name(name):
@@ -131,6 +132,54 @@ def update_index_html(matches):
     INDEX_HTML.write_text(html, encoding="utf-8")
 
 
+def read_supabase_config():
+    """Parse js/config.js for the Supabase URL/anon key. Returns None if the
+    file is missing or still holds the placeholder values (not configured)."""
+    if not CONFIG_JS.exists():
+        return None
+    text = CONFIG_JS.read_text(encoding="utf-8")
+    url_m = re.search(r'url:\s*"([^"]+)"', text)
+    key_m = re.search(r'anonKey:\s*"([^"]+)"', text)
+    if not url_m or not key_m:
+        return None
+    url, key = url_m.group(1), key_m.group(1)
+    if "YOUR-PROJECT" in url or "YOUR-ANON-KEY" in key:
+        return None
+    return {"url": url.rstrip("/"), "key": key}
+
+
+def sync_matches_to_supabase(matches, config):
+    """Upsert scraped matches into the Supabase `matches` table so the
+    disponibilités/compositions pages pick them up automatically."""
+    rows = []
+    for m in matches:
+        home_is_us = m["home"] == TEAM_NAME_DISPLAY
+        opponent = m["away"] if home_is_us else m["home"]
+        rows.append({
+            "match_date": m["date"].isoformat(),
+            "match_time": None,
+            "competition": m["competition"],
+            "opponent": opponent,
+            "home_away": "domicile" if home_is_us else "exterieur",
+            "venue": m["venue"],
+        })
+
+    resp = requests.post(
+        f"{config['url']}/rest/v1/matches",
+        params={"on_conflict": "match_date,opponent,competition"},
+        headers={
+            "apikey": config["key"],
+            "Authorization": f"Bearer {config['key']}",
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates,return=minimal",
+        },
+        json=rows,
+        timeout=20,
+    )
+    resp.raise_for_status()
+    return len(rows)
+
+
 def main():
     matches = fetch_matches()
     if not matches:
@@ -138,7 +187,17 @@ def main():
         return 1
     matches.sort(key=lambda m: m["date"])
     update_index_html(matches)
-    print(f"OK: {len(matches)} match(s) synchronisé(s).")
+    print(f"OK: {len(matches)} match(s) synchronisé(s) dans index.html.")
+
+    config = read_supabase_config()
+    if config:
+        try:
+            n = sync_matches_to_supabase(matches, config)
+            print(f"OK: {n} match(s) synchronisé(s) dans Supabase.")
+        except requests.RequestException as exc:
+            print(f"Avertissement: échec de synchro Supabase ({exc}).", file=sys.stderr)
+    else:
+        print("Supabase non configuré (js/config.js) — synchro matchs ignorée.")
     return 0
 
 

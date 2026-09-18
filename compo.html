@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compositions — Espérance Breizhilienne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-hero">
+  <div class="app-hero-inner">
+    <h1>Compositions</h1>
+    <p class="tagline">Espérance Breizhilienne — Foot à 7</p>
+    <nav class="app-nav">
+      <a href="index.html">Accueil</a>
+      <a href="equipe.html">Effectif</a>
+      <a href="matchs.html">Matchs</a>
+      <a href="disponibilites.html">Disponibilités</a>
+      <a href="compo.html" class="active">Compositions</a>
+    </nav>
+  </div>
+</header>
+
+<main class="app-main">
+
+  <div id="configWarning" class="config-warning" style="display:none">
+    Supabase n'est pas configuré. Renseigne <code>js/config.js</code>, puis exécute
+    <code>supabase/schema.sql</code> dans l'éditeur SQL de ton projet Supabase.
+  </div>
+
+  <section class="card" id="pickerCard">
+    <h2>Match</h2>
+    <div class="field">
+      <label for="matchSelect">Choisir un match</label>
+      <select id="matchSelect"></select>
+    </div>
+  </section>
+
+  <section id="lineupSection" style="display:none">
+
+    <div class="lineup-tabs" id="lineupTabs"></div>
+
+    <section class="card">
+      <div class="form-row" style="align-items:flex-end">
+        <div class="field" style="flex:1">
+          <label for="formationSelect">Formation</label>
+          <select id="formationSelect">
+            <option value="2-3-1">2-3-1</option>
+            <option value="3-2-1">3-2-1</option>
+            <option value="2-2-2">2-2-2</option>
+            <option value="3-1-2">3-1-2</option>
+            <option value="1-3-2">1-3-2</option>
+          </select>
+        </div>
+        <button class="btn secondary small" id="deleteLineupBtn" type="button">Supprimer cette compo</button>
+      </div>
+
+      <div class="pitch-wrap" id="pitch"></div>
+
+      <div class="bench">
+        <strong style="font-size:.82rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Disponibles non placés</strong>
+        <div class="bench-list" id="benchList"></div>
+      </div>
+    </section>
+
+  </section>
+
+</main>
+
+<footer>
+  <p>Espérance Breizhilienne · Foot à 7 FSGT IDF</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script src="js/formations.js"></script>
+<script>
+let players = [];
+let matches = [];
+let availability = []; // for current match
+let lineups = [];      // for current match, each with lineup_slots
+let currentLineupId = null;
+
+async function init() {
+  if (!db.isConfigured()) {
+    document.getElementById("configWarning").style.display = "block";
+    return;
+  }
+  players = await db.listPlayers();
+  matches = await db.listMatches({ upcomingOnly: true });
+
+  const matchSelect = document.getElementById("matchSelect");
+  matchSelect.innerHTML = '<option value="">— Choisir —</option>';
+  for (const m of matches) {
+    const opt = document.createElement("option");
+    opt.value = m.id;
+    opt.textContent = `${formatDate(m.match_date)} — vs ${m.opponent}`;
+    matchSelect.appendChild(opt);
+  }
+  matchSelect.addEventListener("change", () => loadMatch(matchSelect.value));
+
+  document.getElementById("formationSelect").addEventListener("change", changeFormation);
+  document.getElementById("deleteLineupBtn").addEventListener("click", deleteCurrentLineup);
+
+  if (matches.length > 0) {
+    matchSelect.value = matches[0].id;
+    loadMatch(matches[0].id);
+  }
+}
+
+async function loadMatch(matchId) {
+  document.getElementById("lineupSection").style.display = matchId ? "block" : "none";
+  if (!matchId) return;
+
+  availability = await db.getAvailabilityForMatch(matchId);
+  lineups = await db.listLineupsForMatch(matchId);
+
+  if (lineups.length === 0) {
+    const created = await db.createLineup({ matchId, name: "Compo 1", formation: "2-3-1" });
+    created.lineup_slots = [];
+    lineups = [created];
+  }
+
+  currentLineupId = lineups[0].id;
+  renderTabs(matchId);
+  renderLineup();
+}
+
+function renderTabs(matchId) {
+  const tabs = document.getElementById("lineupTabs");
+  tabs.innerHTML = "";
+  for (const l of lineups) {
+    const tab = document.createElement("div");
+    tab.className = `lineup-tab${l.id === currentLineupId ? " active" : ""}`;
+    tab.textContent = l.name;
+    tab.addEventListener("click", () => {
+      currentLineupId = l.id;
+      renderTabs(matchId);
+      renderLineup();
+    });
+    tabs.appendChild(tab);
+  }
+  const addTab = document.createElement("div");
+  addTab.className = "lineup-tab";
+  addTab.textContent = "+ Nouvelle compo";
+  addTab.addEventListener("click", async () => {
+    const name = `Compo ${lineups.length + 1}`;
+    const created = await db.createLineup({ matchId, name, formation: "2-3-1" });
+    created.lineup_slots = [];
+    lineups.push(created);
+    currentLineupId = created.id;
+    renderTabs(matchId);
+    renderLineup();
+  });
+  tabs.appendChild(addTab);
+}
+
+function currentLineup() {
+  return lineups.find((l) => l.id === currentLineupId);
+}
+
+function renderLineup() {
+  const lineup = currentLineup();
+  if (!lineup) return;
+
+  document.getElementById("formationSelect").value = lineup.formation;
+
+  const slots = getFormationSlots(lineup.formation);
+  const slotValues = {};
+  for (const s of lineup.lineup_slots || []) slotValues[s.slot_key] = s.player_id;
+
+  const pitch = document.getElementById("pitch");
+  pitch.innerHTML = "";
+
+  const availById = {};
+  for (const a of availability) availById[a.player_id] = a.status;
+
+  const assignedIds = new Set(Object.values(slotValues).filter(Boolean));
+
+  for (const slot of slots) {
+    const wrap = document.createElement("div");
+    wrap.className = "pitch-slot";
+    wrap.style.left = slot.x + "%";
+    wrap.style.top = slot.y + "%";
+
+    const label = document.createElement("div");
+    label.className = "slot-label";
+    label.textContent = slot.label;
+    wrap.appendChild(label);
+
+    const select = document.createElement("select");
+    const emptyOpt = document.createElement("option");
+    emptyOpt.value = "";
+    emptyOpt.textContent = "—";
+    select.appendChild(emptyOpt);
+
+    const sorted = [...players].sort((a, b) => {
+      const rank = (p) => (p.position === slot.suggestedPosition ? 0 : 1);
+      return rank(a) - rank(b) || a.name.localeCompare(b.name);
+    });
+
+    for (const p of sorted) {
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      const status = availById[p.id];
+      const marker = status === "disponible" ? "✅" : status === "indisponible" ? "❌" : "❓";
+      opt.textContent = `${marker} ${p.name}`;
+      if (slotValues[slot.key] === p.id) opt.selected = true;
+      select.appendChild(opt);
+    }
+
+    select.addEventListener("change", async () => {
+      const playerId = select.value || null;
+      if (playerId && assignedIds.has(playerId) && slotValues[slot.key] !== playerId) {
+        alert("Ce joueur est déjà placé à un autre poste dans cette compo.");
+        select.value = slotValues[slot.key] || "";
+        return;
+      }
+      await db.setLineupSlot({ lineupId: lineup.id, slotKey: slot.key, playerId });
+      lineups = await db.listLineupsForMatch(document.getElementById("matchSelect").value);
+      renderLineup();
+    });
+
+    wrap.appendChild(select);
+    pitch.appendChild(wrap);
+  }
+
+  renderBench(availById, assignedIds);
+}
+
+function renderBench(availById, assignedIds) {
+  const bench = document.getElementById("benchList");
+  bench.innerHTML = "";
+  const available = players.filter((p) => availById[p.id] === "disponible" && !assignedIds.has(p.id));
+  if (available.length === 0) {
+    bench.innerHTML = '<span style="font-size:.82rem;color:var(--muted)">Aucun</span>';
+    return;
+  }
+  for (const p of available) {
+    const chip = document.createElement("span");
+    chip.className = "bench-chip";
+    chip.textContent = p.name;
+    bench.appendChild(chip);
+  }
+}
+
+async function changeFormation() {
+  const lineup = currentLineup();
+  const formation = document.getElementById("formationSelect").value;
+  if (formation === lineup.formation) return;
+  if (
+    (lineup.lineup_slots || []).some((s) => s.player_id) &&
+    !confirm("Changer de formation réinitialise les postes déjà remplis pour cette compo. Continuer ?")
+  ) {
+    document.getElementById("formationSelect").value = lineup.formation;
+    return;
+  }
+  await db.updateLineupFormation(lineup.id, formation);
+  lineups = await db.listLineupsForMatch(document.getElementById("matchSelect").value);
+  currentLineupId = lineup.id;
+  renderLineup();
+}
+
+async function deleteCurrentLineup() {
+  const lineup = currentLineup();
+  if (!lineup) return;
+  if (!confirm(`Supprimer "${lineup.name}" ?`)) return;
+  await db.deleteLineup(lineup.id);
+  lineups = lineups.filter((l) => l.id !== lineup.id);
+  if (lineups.length === 0) {
+    const matchId = document.getElementById("matchSelect").value;
+    const created = await db.createLineup({ matchId, name: "Compo 1", formation: "2-3-1" });
+    created.lineup_slots = [];
+    lineups = [created];
+  }
+  currentLineupId = lineups[0].id;
+  renderTabs(document.getElementById("matchSelect").value);
+  renderLineup();
+}
+
+function formatDate(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+init();
+</script>
+
+</body>
+</html>
