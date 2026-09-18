@@ -199,6 +199,7 @@ main {
 
 table.calendar {
   width: 100%;
+  min-width: 560px;
   border-collapse: collapse;
   font-size: .92rem;
 }
@@ -211,6 +212,7 @@ table.calendar th {
   color: var(--muted);
   padding: 8px 10px;
   border-bottom: 2px solid var(--border);
+  white-space: nowrap;
 }
 
 table.calendar td {
