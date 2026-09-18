@@ -13,11 +13,22 @@ function confirmAction(anchorEl, message) {
 
     const box = document.createElement("span");
     box.className = "inline-confirm";
-    box.innerHTML = `
-      <span class="inline-confirm-msg">${message}</span>
-      <button type="button" class="btn small danger" data-a="yes">Confirmer</button>
-      <button type="button" class="btn secondary small" data-a="no">Annuler</button>
-    `;
+
+    const msgSpan = document.createElement("span");
+    msgSpan.className = "inline-confirm-msg";
+    msgSpan.textContent = message; // texte brut : message peut contenir un nom saisi par un joueur
+
+    const yesBtn = document.createElement("button");
+    yesBtn.type = "button";
+    yesBtn.className = "btn small danger";
+    yesBtn.textContent = "Confirmer";
+
+    const noBtn = document.createElement("button");
+    noBtn.type = "button";
+    noBtn.className = "btn secondary small";
+    noBtn.textContent = "Annuler";
+
+    box.append(msgSpan, yesBtn, noBtn);
     anchorEl.insertAdjacentElement("afterend", box);
 
     function cleanup(result) {
@@ -26,8 +37,8 @@ function confirmAction(anchorEl, message) {
       resolve(result);
     }
 
-    box.querySelector('[data-a="yes"]').addEventListener("click", () => cleanup(true));
-    box.querySelector('[data-a="no"]').addEventListener("click", () => cleanup(false));
+    yesBtn.addEventListener("click", () => cleanup(true));
+    noBtn.addEventListener("click", () => cleanup(false));
   });
 }
 

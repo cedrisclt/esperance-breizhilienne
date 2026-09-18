@@ -120,9 +120,9 @@ async function renderMatches(pastMatches) {
         <label>Score final</label>
         <div class="score-row">
           <span>Nous</span>
-          <input type="number" min="0" class="score-input" data-role="scoreUs" value="${m.score_us ?? ""}">
+          <input type="number" min="0" class="score-input" data-role="scoreUs" aria-label="Score de l'équipe" value="${m.score_us ?? ""}">
           <span>—</span>
-          <input type="number" min="0" class="score-input" data-role="scoreThem" value="${m.score_them ?? ""}">
+          <input type="number" min="0" class="score-input" data-role="scoreThem" aria-label="Score de l'adversaire" value="${m.score_them ?? ""}">
           <span>Eux</span>
           <button class="btn small" data-action="saveScore" type="button">Enregistrer</button>
         </div>

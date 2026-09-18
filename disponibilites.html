@@ -155,7 +155,7 @@ function renderMatches() {
         <span class="us">vs ${escapeHtml(m.opponent)}</span>
       </div>
       <div class="match-details" style="margin-bottom:14px">
-        <div><strong>Date</strong> ${formatDate(m.match_date)} ${m.match_time || ""}</div>
+        <div><strong>Date</strong> ${formatDate(m.match_date)} ${escapeHtml(m.match_time || "")}</div>
         <div><strong>Lieu</strong> ${escapeHtml(m.venue || "")}</div>
       </div>
       <div class="drop-zone"></div>
@@ -213,12 +213,14 @@ function renderMatches() {
       const rosterWrap = document.createElement("div");
       rosterWrap.innerHTML = `
         <div class="roster-line"><strong>Dedans :</strong> ${
-          confirmed.length ? confirmed.map((a) => nameOf(a.player_id)).join(", ") : "personne pour l'instant"
+          confirmed.length
+            ? confirmed.map((a) => escapeHtml(nameOf(a.player_id))).join(", ")
+            : "personne pour l'instant"
         }</div>
         ${
           waitlist.length
             ? `<div class="roster-line"><strong>Liste d'attente :</strong> ${waitlist
-                .map((a) => nameOf(a.player_id))
+                .map((a) => escapeHtml(nameOf(a.player_id)))
                 .join(", ")}</div>`
             : ""
         }

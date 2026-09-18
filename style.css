@@ -137,7 +137,7 @@ main {
   border-color: rgba(139,79,217,0.35);
 }
 
-.card:hover::before { opacity: 1.6; }
+.card:hover::before { opacity: 1; }
 
 .card h2 {
   font-family: var(--font-display);

@@ -126,7 +126,7 @@ async function renderMatches() {
       ? `Drop : ${formatDateTime(m.drop_at)}`
       : "Drop : ouvert immédiatement";
     row.innerHTML = `
-      <span class="player-name">${formatDate(m.match_date)} ${m.match_time || ""} — vs ${escapeHtml(m.opponent)}
+      <span class="player-name">${formatDate(m.match_date)} ${escapeHtml(m.match_time || "")} — vs ${escapeHtml(m.opponent)}
         <span style="display:block;font-size:.78rem;color:var(--muted);font-weight:400">
           ${escapeHtml(m.competition || "")} · ${escapeHtml(m.venue || "")}
         </span>
