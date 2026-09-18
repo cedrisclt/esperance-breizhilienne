@@ -123,12 +123,11 @@ async function buildMatchCard(m) {
     <div class="field">
       <label>Score final</label>
       <div class="score-row">
-        <span>Nous</span>
-        <input type="number" min="0" class="score-input" data-role="scoreUs" aria-label="Score de l'équipe" value="${m.score_us ?? ""}">
+        <span class="score-team">Espérance Breizhilienne</span>
+        <input type="number" min="0" class="score-input" data-role="scoreUs" aria-label="Score Espérance Breizhilienne" value="${m.score_us ?? ""}">
         <span>—</span>
-        <input type="number" min="0" class="score-input" data-role="scoreThem" aria-label="Score de l'adversaire" value="${m.score_them ?? ""}">
-        <span>Eux</span>
-        <button class="btn small" data-action="saveScore" type="button">Enregistrer</button>
+        <input type="number" min="0" class="score-input" data-role="scoreThem" aria-label="Score ${escapeHtml(m.opponent)}" value="${m.score_them ?? ""}">
+        <span class="score-team">${escapeHtml(m.opponent)}</span>
       </div>
     </div>
 
@@ -141,7 +140,7 @@ async function buildMatchCard(m) {
     </div>
   `;
 
-  card.querySelector('[data-action="saveScore"]').addEventListener("click", async () => {
+  async function saveScore() {
     const scoreUs = card.querySelector('[data-role="scoreUs"]').value;
     const scoreThem = card.querySelector('[data-role="scoreThem"]').value;
     await db.updateMatch(m.id, {
@@ -149,7 +148,9 @@ async function buildMatchCard(m) {
       score_them: scoreThem === "" ? null : parseInt(scoreThem, 10),
     });
     showToast("Score enregistré.");
-  });
+  }
+  card.querySelector('[data-role="scoreUs"]').addEventListener("change", saveScore);
+  card.querySelector('[data-role="scoreThem"]').addEventListener("change", saveScore);
 
   const teamEditor = card.querySelector(".team-editor");
   card.querySelector('[data-action="toggleTeam"]').addEventListener("click", (e) => {
@@ -196,7 +197,6 @@ async function buildMatchCard(m) {
     goalsField.innerHTML = `
       <label>Buteurs</label>
       <div class="scorers-list"></div>
-      <button class="btn small secondary" data-action="saveGoals" type="button" style="margin-top:8px">Enregistrer les buts</button>
     `;
     const scorersList = goalsField.querySelector(".scorers-list");
     for (const p of participants) {
@@ -204,23 +204,18 @@ async function buildMatchCard(m) {
       row.className = "scorer-row";
       row.innerHTML = `
         <span>${escapeHtml(p.name)}</span>
-        <input type="number" min="0" class="score-input small" data-player-id="${p.id}" value="${goalsByPlayer[p.id] || 0}">
+        <input type="number" min="0" class="score-input small" data-player-id="${p.id}" aria-label="Buts de ${escapeHtml(p.name)}" value="${goalsByPlayer[p.id] || 0}">
       `;
+      row.querySelector("input").addEventListener("change", async (e) => {
+        await db.setGoals({
+          matchId: m.id,
+          playerId: p.id,
+          count: parseInt(e.target.value, 10) || 0,
+        });
+        showToast(`But(s) de ${p.name} enregistré(s).`);
+      });
       scorersList.appendChild(row);
     }
-    goalsField.querySelector('[data-action="saveGoals"]').addEventListener("click", async () => {
-      const inputs = scorersList.querySelectorAll("input[data-player-id]");
-      await Promise.all(
-        Array.from(inputs).map((input) =>
-          db.setGoals({
-            matchId: m.id,
-            playerId: input.dataset.playerId,
-            count: parseInt(input.value, 10) || 0,
-          })
-        )
-      );
-      showToast("Buteurs enregistrés.");
-    });
     card.appendChild(goalsField);
   } else {
     const note = document.createElement("p");

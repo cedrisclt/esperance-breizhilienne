@@ -745,6 +745,11 @@ main.app-main {
   flex-wrap: wrap;
 }
 
+.score-team {
+  font-weight: 600;
+  font-size: .9rem;
+}
+
 .score-input {
   width: 56px;
   border: 1px solid var(--border);
