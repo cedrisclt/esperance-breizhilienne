@@ -34,11 +34,17 @@ const db = (() => {
       return data;
     },
 
-    async addPlayer({ name, position, phone, notes }) {
+    async addPlayer({ name, positions, phone, notes, priority }) {
       assertConfigured();
       const { data, error } = await client
         .from("players")
-        .insert({ name, position, phone: phone || null, notes: notes || null })
+        .insert({
+          name,
+          positions,
+          phone: phone || null,
+          notes: notes || null,
+          priority: !!priority,
+        })
         .select()
         .single();
       if (error) throw error;
@@ -108,12 +114,33 @@ const db = (() => {
 
     async getAvailabilityForMatch(matchId) {
       assertConfigured();
+      await this.ensurePriorityAvailability(matchId);
       const { data, error } = await client
         .from("availability")
         .select("*")
         .eq("match_id", matchId);
       if (error) throw error;
       return data;
+    },
+
+    // Les joueurs "prioritaires" (ex. les organisateurs) sont marqués
+    // disponibles automatiquement dès qu'un match est consulté pour la
+    // première fois — sans écraser un choix déjà fait (désistement inclus).
+    async ensurePriorityAvailability(matchId) {
+      assertConfigured();
+      const [{ data: priorityPlayers, error: pErr }, { data: existing, error: eErr }] = await Promise.all([
+        client.from("players").select("id").eq("priority", true).eq("active", true),
+        client.from("availability").select("player_id").eq("match_id", matchId),
+      ]);
+      if (pErr) throw pErr;
+      if (eErr) throw eErr;
+      const existingIds = new Set(existing.map((a) => a.player_id));
+      const missing = priorityPlayers.filter((p) => !existingIds.has(p.id));
+      if (missing.length === 0) return;
+      const { error } = await client
+        .from("availability")
+        .insert(missing.map((p) => ({ match_id: matchId, player_id: p.id, status: "disponible" })));
+      if (error) throw error;
     },
 
     async getAvailabilityForPlayer(playerId) {

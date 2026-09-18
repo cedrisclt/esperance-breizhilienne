@@ -45,7 +45,7 @@
 
     <div class="lineup-tabs" id="lineupTabs"></div>
 
-    <section class="card">
+    <section class="card" id="lineupCard">
       <div class="form-row" style="align-items:flex-end">
         <div class="field" style="flex:1">
           <label for="formationSelect">Formation</label>
@@ -68,6 +68,11 @@
       </div>
     </section>
 
+    <section class="card" id="emptyLineupState" style="display:none;text-align:center">
+      <p style="color:var(--muted);margin-top:0">Aucune compo pour ce match pour l'instant.</p>
+      <button class="btn" id="createFirstLineupBtn" type="button">+ Créer une compo</button>
+    </section>
+
   </section>
 
 </main>
@@ -80,6 +85,7 @@
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
 <script src="js/formations.js"></script>
+<script src="js/ui.js"></script>
 <script>
 let players = [];
 let matches = [];
@@ -107,6 +113,9 @@ async function init() {
 
   document.getElementById("formationSelect").addEventListener("change", changeFormation);
   document.getElementById("deleteLineupBtn").addEventListener("click", deleteCurrentLineup);
+  document.getElementById("createFirstLineupBtn").addEventListener("click", () =>
+    createNewLineup(document.getElementById("matchSelect").value)
+  );
 
   if (matches.length > 0) {
     matchSelect.value = matches[0].id;
@@ -120,14 +129,17 @@ async function loadMatch(matchId) {
 
   availability = await db.getAvailabilityForMatch(matchId);
   lineups = await db.listLineupsForMatch(matchId);
+  currentLineupId = lineups.length > 0 ? lineups[0].id : null;
+  renderTabs(matchId);
+  renderLineup();
+}
 
-  if (lineups.length === 0) {
-    const created = await db.createLineup({ matchId, name: "Compo 1", formation: "2-3-1" });
-    created.lineup_slots = [];
-    lineups = [created];
-  }
-
-  currentLineupId = lineups[0].id;
+async function createNewLineup(matchId) {
+  const name = `Compo ${lineups.length + 1}`;
+  const created = await db.createLineup({ matchId, name, formation: "2-3-1" });
+  created.lineup_slots = [];
+  lineups.push(created);
+  currentLineupId = created.id;
   renderTabs(matchId);
   renderLineup();
 }
@@ -135,6 +147,8 @@ async function loadMatch(matchId) {
 function renderTabs(matchId) {
   const tabs = document.getElementById("lineupTabs");
   tabs.innerHTML = "";
+  if (lineups.length === 0) return;
+
   for (const l of lineups) {
     const tab = document.createElement("div");
     tab.className = `lineup-tab${l.id === currentLineupId ? " active" : ""}`;
@@ -149,15 +163,7 @@ function renderTabs(matchId) {
   const addTab = document.createElement("div");
   addTab.className = "lineup-tab";
   addTab.textContent = "+ Nouvelle compo";
-  addTab.addEventListener("click", async () => {
-    const name = `Compo ${lineups.length + 1}`;
-    const created = await db.createLineup({ matchId, name, formation: "2-3-1" });
-    created.lineup_slots = [];
-    lineups.push(created);
-    currentLineupId = created.id;
-    renderTabs(matchId);
-    renderLineup();
-  });
+  addTab.addEventListener("click", () => createNewLineup(matchId));
   tabs.appendChild(addTab);
 }
 
@@ -167,6 +173,8 @@ function currentLineup() {
 
 function renderLineup() {
   const lineup = currentLineup();
+  document.getElementById("lineupCard").style.display = lineup ? "block" : "none";
+  document.getElementById("emptyLineupState").style.display = lineup ? "none" : "block";
   if (!lineup) return;
 
   document.getElementById("formationSelect").value = lineup.formation;
@@ -202,7 +210,7 @@ function renderLineup() {
     select.appendChild(emptyOpt);
 
     const sorted = [...players].sort((a, b) => {
-      const rank = (p) => (p.position === slot.suggestedPosition ? 0 : 1);
+      const rank = (p) => (p.positions.includes(slot.suggestedPosition) ? 0 : 1);
       return rank(a) - rank(b) || a.name.localeCompare(b.name);
     });
 
@@ -220,7 +228,7 @@ function renderLineup() {
     select.addEventListener("change", async () => {
       const playerId = select.value || null;
       if (playerId && assignedIds.has(playerId) && slotValues[slot.key] !== playerId) {
-        alert("Ce joueur est déjà placé à un autre poste dans cette compo.");
+        showToast("Ce joueur est déjà placé à un autre poste dans cette compo.");
         select.value = slotValues[slot.key] || "";
         return;
       }
@@ -254,14 +262,18 @@ function renderBench(availById, assignedIds) {
 
 async function changeFormation() {
   const lineup = currentLineup();
-  const formation = document.getElementById("formationSelect").value;
+  const select = document.getElementById("formationSelect");
+  const formation = select.value;
   if (formation === lineup.formation) return;
-  if (
-    (lineup.lineup_slots || []).some((s) => s.player_id) &&
-    !confirm("Changer de formation réinitialise les postes déjà remplis pour cette compo. Continuer ?")
-  ) {
-    document.getElementById("formationSelect").value = lineup.formation;
-    return;
+  if ((lineup.lineup_slots || []).some((s) => s.player_id)) {
+    const ok = await confirmAction(
+      select,
+      "Changer de formation réinitialise les postes déjà remplis. Continuer ?"
+    );
+    if (!ok) {
+      select.value = lineup.formation;
+      return;
+    }
   }
   await db.updateLineupFormation(lineup.id, formation);
   lineups = await db.listLineupsForMatch(document.getElementById("matchSelect").value);
@@ -272,18 +284,15 @@ async function changeFormation() {
 async function deleteCurrentLineup() {
   const lineup = currentLineup();
   if (!lineup) return;
-  if (!confirm(`Supprimer "${lineup.name}" ?`)) return;
+  const btn = document.getElementById("deleteLineupBtn");
+  const ok = await confirmAction(btn, `Supprimer "${lineup.name}" ?`);
+  if (!ok) return;
   await db.deleteLineup(lineup.id);
   lineups = lineups.filter((l) => l.id !== lineup.id);
-  if (lineups.length === 0) {
-    const matchId = document.getElementById("matchSelect").value;
-    const created = await db.createLineup({ matchId, name: "Compo 1", formation: "2-3-1" });
-    created.lineup_slots = [];
-    lineups = [created];
-  }
-  currentLineupId = lineups[0].id;
+  currentLineupId = lineups.length > 0 ? lineups[0].id : null;
   renderTabs(document.getElementById("matchSelect").value);
   renderLineup();
+  showToast(`"${lineup.name}" supprimée.`);
 }
 
 function formatDate(dateStr) {

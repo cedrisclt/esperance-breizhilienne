@@ -37,19 +37,17 @@
   <section class="card">
     <h2>Ajouter un joueur</h2>
     <form id="playerForm">
-      <div class="form-row">
-        <div class="field">
-          <label for="name">Nom</label>
-          <input id="name" type="text" required placeholder="Ex. Noé Harreyron">
-        </div>
-        <div class="field">
-          <label for="position">Poste</label>
-          <select id="position" required autocomplete="off">
-            <option value="GK">Gardien</option>
-            <option value="DEF">Défenseur</option>
-            <option value="MID" selected>Milieu</option>
-            <option value="ATT">Attaquant</option>
-          </select>
+      <div class="field">
+        <label for="name">Nom</label>
+        <input id="name" type="text" required placeholder="Ex. Noé Harreyron">
+      </div>
+      <div class="field">
+        <label>Poste(s) — plusieurs possibles</label>
+        <div class="checkbox-group" id="positionCheckboxes">
+          <label><input type="checkbox" value="GK"> Gardien</label>
+          <label><input type="checkbox" value="DEF"> Défenseur</label>
+          <label><input type="checkbox" value="MID" checked> Milieu</label>
+          <label><input type="checkbox" value="ATT"> Attaquant</label>
         </div>
       </div>
       <div class="field">
@@ -57,10 +55,14 @@
         <input id="phone" type="tel" placeholder="06 12 34 56 78">
       </div>
       <div class="field">
-        <label for="notes">Notes (postes secondaires, précisions...)</label>
-        <input id="notes" type="text" placeholder="Ex. Ailier / Milieu, remplit les gourdes">
+        <label for="notes">Notes (surnom, précisions...)</label>
+        <input id="notes" type="text" placeholder="Ex. numéro 9, remplit les gourdes">
       </div>
-      <button class="btn" type="submit">Ajouter</button>
+      <label class="checkbox-inline">
+        <input type="checkbox" id="priority">
+        Joueur prioritaire — toujours marqué disponible automatiquement sur chaque match
+      </label>
+      <button class="btn" type="submit" style="margin-top:12px">Ajouter</button>
     </form>
   </section>
 
@@ -78,8 +80,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
+<script src="js/ui.js"></script>
 <script>
 const POSITION_LABEL = { GK: "Gardien", DEF: "Défenseur", MID: "Milieu", ATT: "Attaquant" };
+const ALL_POSITIONS = ["GK", "DEF", "MID", "ATT"];
 
 async function init() {
   if (!db.isConfigured()) {
@@ -103,9 +107,11 @@ async function renderPlayers() {
     row.className = "player-row";
     row.style.flexWrap = "wrap";
     row.innerHTML = `
-      <span class="position-badge ${p.position}">${POSITION_LABEL[p.position]}</span>
+      <span style="display:flex;gap:4px;flex-wrap:wrap">
+        ${p.positions.map((pos) => `<span class="position-badge ${pos}">${POSITION_LABEL[pos]}</span>`).join("")}
+      </span>
       <span class="player-name">
-        ${escapeHtml(p.name)}
+        ${escapeHtml(p.name)}${p.priority ? ' <span title="Prioritaire">⭐</span>' : ""}
         ${p.notes ? `<span style="display:block;font-size:.78rem;color:var(--muted);font-weight:400">${escapeHtml(p.notes)}</span>` : ""}
       </span>
       <span style="display:flex;gap:6px">
@@ -113,8 +119,9 @@ async function renderPlayers() {
         <button class="btn secondary small" data-action="remove">Retirer</button>
       </span>
     `;
-    row.querySelector('[data-action="remove"]').addEventListener("click", async () => {
-      if (!confirm(`Retirer ${p.name} de l'effectif actif ?`)) return;
+    row.querySelector('[data-action="remove"]').addEventListener("click", async (e) => {
+      const ok = await confirmAction(e.target, `Retirer ${p.name} de l'effectif actif ?`);
+      if (!ok) return;
       await db.deactivatePlayer(p.id);
       renderPlayers();
     });
@@ -130,42 +137,53 @@ function renderEditForm(row, p) {
   const form = document.createElement("form");
   form.style.width = "100%";
   form.innerHTML = `
-    <div class="form-row">
-      <div class="field">
-        <label>Nom</label>
-        <input name="name" type="text" value="${escapeAttr(p.name)}" required>
-      </div>
-      <div class="field">
-        <label>Poste</label>
-        <select name="position" autocomplete="off">
-          <option value="GK">Gardien</option>
-          <option value="DEF">Défenseur</option>
-          <option value="MID">Milieu</option>
-          <option value="ATT">Attaquant</option>
-        </select>
+    <div class="field">
+      <label>Nom</label>
+      <input name="name" type="text" value="${escapeAttr(p.name)}" required>
+    </div>
+    <div class="field">
+      <label>Poste(s)</label>
+      <div class="checkbox-group" data-role="positions">
+        ${ALL_POSITIONS.map(
+          (pos) =>
+            `<label><input type="checkbox" value="${pos}" ${p.positions.includes(pos) ? "checked" : ""}> ${POSITION_LABEL[pos]}</label>`
+        ).join("")}
       </div>
     </div>
     <div class="field">
       <label>Notes</label>
       <input name="notes" type="text" value="${escapeAttr(p.notes || "")}">
     </div>
-    <div style="display:flex;gap:8px">
+    <label class="checkbox-inline">
+      <input type="checkbox" name="priority" ${p.priority ? "checked" : ""}>
+      Joueur prioritaire
+    </label>
+    <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn small" type="submit">Enregistrer</button>
       <button class="btn secondary small" type="button" data-action="cancel">Annuler</button>
     </div>
   `;
-  form.querySelector('select[name="position"]').value = p.position;
   form.querySelector('[data-action="cancel"]').addEventListener("click", renderPlayers);
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    const positions = getCheckedValues(form.querySelector('[data-role="positions"]'));
+    if (positions.length === 0) {
+      showToast("Sélectionne au moins un poste.");
+      return;
+    }
     await db.updatePlayer(p.id, {
       name: form.name.value.trim(),
-      position: form.position.value,
+      positions,
       notes: form.notes.value.trim() || null,
+      priority: form.priority.checked,
     });
     renderPlayers();
   });
   row.appendChild(form);
+}
+
+function getCheckedValues(container) {
+  return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map((c) => c.value);
 }
 
 function escapeAttr(str) {
@@ -181,13 +199,18 @@ function escapeHtml(str) {
 document.getElementById("playerForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const name = document.getElementById("name").value.trim();
-  const position = document.getElementById("position").value;
+  const positions = getCheckedValues(document.getElementById("positionCheckboxes"));
   const phone = document.getElementById("phone").value.trim();
   const notes = document.getElementById("notes").value.trim();
+  const priority = document.getElementById("priority").checked;
   if (!name) return;
-  await db.addPlayer({ name, position, phone, notes });
+  if (positions.length === 0) {
+    showToast("Sélectionne au moins un poste.");
+    return;
+  }
+  await db.addPlayer({ name, positions, phone, notes, priority });
   e.target.reset();
-  document.getElementById("position").value = "MID";
+  document.querySelector('#positionCheckboxes input[value="MID"]').checked = true;
   renderPlayers();
 });
 

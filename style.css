@@ -339,6 +339,33 @@ main.app-main {
   color: var(--text);
 }
 
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .85rem;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+}
+
+.checkbox-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .85rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
 .form-row {
   display: flex;
   gap: 12px;
@@ -579,4 +606,46 @@ main.app-main {
   border-radius: 20px;
   background: var(--paper);
   border: 1px solid var(--border);
+}
+
+/* Inline confirm / toast (replaces window.confirm / alert) */
+
+.inline-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: #fff4f2;
+  border: 1px solid #f3c4ba;
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+.inline-confirm-msg {
+  font-size: .82rem;
+  color: #7a2c1c;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--noir);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: .88rem;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+  z-index: 1000;
+  max-width: 90vw;
+  text-align: center;
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }

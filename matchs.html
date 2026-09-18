@@ -104,6 +104,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
+<script src="js/ui.js"></script>
 <script>
 async function init() {
   if (!db.isConfigured()) {
@@ -142,8 +143,9 @@ async function renderMatches() {
         <button class="btn secondary small" data-action="remove">Supprimer</button>
       </span>
     `;
-    row.querySelector('[data-action="remove"]').addEventListener("click", async () => {
-      if (!confirm("Supprimer ce match (et ses dispos/compos associées) ?")) return;
+    row.querySelector('[data-action="remove"]').addEventListener("click", async (e) => {
+      const ok = await confirmAction(e.target, "Supprimer ce match (et ses dispos/compos associées) ?");
+      if (!ok) return;
       await db.deleteMatch(m.id);
       renderMatches();
     });

@@ -8,7 +8,7 @@ create extension if not exists "pgcrypto";
 create table if not exists players (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  position text not null check (position in ('GK','DEF','MID','ATT')),
+  position text check (position in ('GK','DEF','MID','ATT')),
   phone text,
   active boolean not null default true,
   created_at timestamptz not null default now()
@@ -17,6 +17,23 @@ create table if not exists players (
 -- Notes libres : postes secondaires, surnoms, particularités
 -- ("Ailier / Milieu / Gardien 5⭐️", "numéro 9", etc.)
 alter table players add column if not exists notes text;
+
+-- Un joueur peut avoir plusieurs postes (ex. {DEF,ATT}).
+-- Remplace l'ancienne colonne `position` (un seul poste).
+alter table players add column if not exists positions text[];
+update players set positions = array[position] where positions is null and position is not null;
+update players set positions = '{}' where positions is null;
+alter table players alter column positions set not null;
+alter table players alter column positions set default '{}';
+alter table players drop constraint if exists players_positions_valid;
+alter table players
+  add constraint players_positions_valid
+  check (positions <@ array['GK','DEF','MID','ATT']::text[]);
+alter table players drop column if exists position;
+
+-- Joueur "prioritaire" : marqué disponible automatiquement sur chaque
+-- match (ex. les organisateurs), sans passer par la limite de capacité.
+alter table players add column if not exists priority boolean not null default false;
 
 -- ───────────────────────────── Matchs ──────────────────────────────
 create table if not exists matches (

@@ -99,8 +99,8 @@ async function init() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${i + 1}</td>
-      <td>${escapeHtml(p.name)}</td>
-      <td><span class="position-badge ${p.position}">${POSITION_LABEL[p.position]}</span></td>
+      <td>${escapeHtml(p.name)}${p.priority ? " ⭐" : ""}</td>
+      <td>${p.positions.map((pos) => `<span class="position-badge ${pos}">${POSITION_LABEL[pos]}</span>`).join(" ")}</td>
       <td><strong>${p.played}</strong></td>
     `;
     body.appendChild(tr);
