@@ -181,7 +181,7 @@ function renderMatches() {
       row.className = "mvp-option" + (myVote && myVote.voted_for_id === p.id ? " selected" : "");
       row.disabled = !iPlayed;
       row.innerHTML = `
-        <span>${isLeader ? "👑 " : ""}${escapeHtml(p.name)}</span>
+        <span><span class="mvp-crown">${isLeader ? "👑" : ""}</span>${escapeHtml(p.name)}</span>
         <span class="mvp-count">${count}</span>
       `;
       row.addEventListener("click", async () => {

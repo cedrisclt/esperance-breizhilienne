@@ -58,10 +58,6 @@
         </div>
       </div>
       <div class="field">
-        <label for="phone">Téléphone (optionnel)</label>
-        <input id="phone" type="tel" placeholder="06 12 34 56 78">
-      </div>
-      <div class="field">
         <label for="notes">Notes (surnom, précisions...)</label>
         <input id="notes" type="text" placeholder="Ex. numéro 9, remplit les gourdes">
       </div>
@@ -107,19 +103,18 @@ async function renderPlayers() {
   for (const p of players) {
     const row = document.createElement("div");
     row.className = "player-row";
-    row.style.flexWrap = "wrap";
     row.innerHTML = `
-      <span style="display:flex;gap:4px;flex-wrap:wrap">
-        ${p.positions.map((pos) => `<span class="position-badge ${pos}">${POSITION_LABEL[pos]}</span>`).join("")}
-      </span>
-      <span class="player-name">
-        ${escapeHtml(p.name)}${p.priority ? ' <span title="Prioritaire">⭐</span>' : ""}
-        ${p.notes ? `<span style="display:block;font-size:.78rem;color:var(--muted);font-weight:400">${escapeHtml(p.notes)}</span>` : ""}
-      </span>
-      <span style="display:flex;gap:6px">
+      <div class="player-info">
+        <div class="player-name">${escapeHtml(p.name)}${p.priority ? ' <span title="Prioritaire">⭐</span>' : ""}</div>
+        <div class="player-badges">
+          ${p.positions.map((pos) => `<span class="position-badge ${pos}">${POSITION_LABEL[pos]}</span>`).join("")}
+        </div>
+        ${p.notes ? `<div class="player-notes">${escapeHtml(p.notes)}</div>` : ""}
+      </div>
+      <div class="player-actions">
         <button class="btn secondary small" data-action="edit">Éditer</button>
         <button class="btn secondary small" data-action="remove">Retirer</button>
-      </span>
+      </div>
     `;
     row.querySelector('[data-action="remove"]').addEventListener("click", async (e) => {
       const ok = await confirmAction(e.target, `Retirer ${p.name} de l'effectif actif ?`);
@@ -202,7 +197,6 @@ document.getElementById("playerForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const name = document.getElementById("name").value.trim();
   const positions = getCheckedValues(document.getElementById("positionCheckboxes"));
-  const phone = document.getElementById("phone").value.trim();
   const notes = document.getElementById("notes").value.trim();
   const priority = document.getElementById("priority").checked;
   if (!name) return;
@@ -210,7 +204,7 @@ document.getElementById("playerForm").addEventListener("submit", async (e) => {
     showToast("Sélectionne au moins un poste.");
     return;
   }
-  await db.addPlayer({ name, positions, phone, notes, priority });
+  await db.addPlayer({ name, positions, notes, priority });
   e.target.reset();
   document.querySelector('#positionCheckboxes input[value="MID"]').checked = true;
   renderPlayers();

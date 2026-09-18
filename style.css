@@ -466,14 +466,44 @@ main.app-main {
 
 .player-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 10px 0;
+  padding: 12px 0;
   border-bottom: 1px solid var(--border);
   gap: 10px;
 }
 .player-row:last-child { border-bottom: none; }
 .player-row .player-name { font-weight: 600; flex: 1; }
+
+.player-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.player-info .player-name {
+  font-weight: 600;
+  font-size: .98rem;
+}
+
+.player-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.player-notes {
+  font-size: .78rem;
+  color: var(--muted);
+}
+
+.player-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
 
 /* Availability */
 
@@ -767,6 +797,11 @@ main.app-main {
 .mvp-option:disabled {
   cursor: default;
   opacity: .7;
+}
+
+.mvp-crown {
+  display: inline-block;
+  width: 1.4em;
 }
 
 .mvp-option.selected {
