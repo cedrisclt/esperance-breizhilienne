@@ -13,8 +13,13 @@
 
 <header class="app-hero">
   <div class="app-hero-inner">
-    <h1>Disponibilités</h1>
-    <p class="tagline">Espérance Breizhilienne — Foot à 7</p>
+    <div class="app-hero-top">
+      <div>
+        <h1>Disponibilités</h1>
+        <p class="tagline">Espérance Breizhilienne — Foot à 7</p>
+      </div>
+      <div class="identity-bar" id="identityBar"></div>
+    </div>
     <nav class="app-nav">
       <a href="index.html">Accueil</a>
       <a href="equipe.html">Effectif</a>
@@ -35,20 +40,6 @@
     <code>supabase/schema.sql</code> dans l'éditeur SQL de ton projet Supabase.
   </div>
 
-  <section class="card" id="whoCard">
-    <h2>Qui es-tu ?</h2>
-    <div class="field">
-      <label for="whoSelect">Ton nom</label>
-      <select id="whoSelect" autocomplete="off">
-        <option value="">— Choisis ton nom —</option>
-      </select>
-    </div>
-    <p style="font-size:.82rem;color:var(--muted);margin:0">
-      Ton choix est mémorisé sur cet appareil. Pas encore dans la liste ?
-      <a href="equipe.html">Ajoute-toi depuis l'effectif</a>.
-    </p>
-  </section>
-
   <section id="matchesSection" style="display:none">
     <h2 style="margin: 0 0 10px">Prochains matchs</h2>
     <div id="matchList" style="display:flex;flex-direction:column;gap:16px"></div>
@@ -63,15 +54,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
+<script src="js/identity.js"></script>
 <script>
 let players = [];
 let playersById = {};
 let matches = [];
 let availabilityByMatch = {}; // match_id -> array of {player_id, status, updated_at}
-
-function currentPlayerId() {
-  return localStorage.getItem("eb_player_id") || "";
-}
 
 async function init() {
   if (!db.isConfigured()) {
@@ -82,21 +70,7 @@ async function init() {
   playersById = Object.fromEntries(players.map((p) => [p.id, p]));
   matches = await db.listMatches({ upcomingOnly: true });
 
-  const whoSelect = document.getElementById("whoSelect");
-  for (const p of players) {
-    const opt = document.createElement("option");
-    opt.value = p.id;
-    opt.textContent = p.name;
-    whoSelect.appendChild(opt);
-  }
-  const saved = currentPlayerId();
-  if (saved && players.some((p) => p.id === saved)) {
-    whoSelect.value = saved;
-  }
-  whoSelect.addEventListener("change", () => {
-    localStorage.setItem("eb_player_id", whoSelect.value);
-    renderMatches();
-  });
+  window.addEventListener("eb:identity-changed", renderMatches);
 
   await loadAvailability();
   renderMatches();
@@ -118,15 +92,20 @@ async function loadAvailability() {
 
 function renderMatches() {
   const section = document.getElementById("matchesSection");
-  const playerId = currentPlayerId();
-  if (!playerId) {
-    section.style.display = "none";
-    return;
-  }
   section.style.display = "block";
 
   const list = document.getElementById("matchList");
   list.innerHTML = "";
+
+  const playerId = Identity.getPlayerId();
+  if (!playerId) {
+    list.innerHTML = `
+      <p style="color:var(--muted);font-size:.9rem">
+        Choisis qui tu es en haut de la page pour voir tes matchs et t'inscrire.
+        Pas encore dans la liste ? <a href="equipe.html">Ajoute-toi depuis l'effectif</a>.
+      </p>`;
+    return;
+  }
 
   if (matches.length === 0) {
     list.innerHTML = '<p style="color:var(--muted);font-size:.9rem">Aucun match à venir pour le moment.</p>';

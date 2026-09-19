@@ -330,6 +330,50 @@ nav.app-nav a.active {
   box-shadow: 0 6px 16px -6px rgba(139,79,217,0.9);
 }
 
+/* Identité partagée (bandeau "Tu es : ...") */
+
+.app-hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.identity-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.identity-bar--center { justify-content: center; margin-top: 16px; }
+
+.identity-bar .identity-label {
+  font-size: .78rem;
+  color: rgba(255,255,255,0.75);
+  white-space: nowrap;
+}
+
+.identity-bar select {
+  background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.35);
+  color: #fff;
+  font-size: .82rem;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.identity-bar select:hover { background: rgba(255,255,255,0.22); }
+
+.identity-bar select option {
+  color: var(--text);
+  background: #fff;
+}
+
 main.app-main {
   max-width: var(--content-width);
   margin: 24px auto 60px;
@@ -783,10 +827,60 @@ main.app-main {
   align-items: center;
   justify-content: space-between;
   font-size: .9rem;
-  padding: 4px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--border);
 }
 .scorer-row:last-child { border-bottom: none; }
+
+.scorer-name { font-weight: 600; }
+
+.scorer-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scorer-count {
+  min-width: 1.2em;
+  text-align: center;
+  font-weight: 700;
+  color: var(--violet-dark);
+}
+
+.step-btn,
+.scorer-remove {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.step-btn { color: var(--violet-dark); font-weight: 700; }
+.step-btn:hover { background: var(--paper); }
+
+.scorer-remove { color: #c0392b; font-size: .9rem; }
+.scorer-remove:hover { background: #fff4f2; border-color: #f3c4ba; }
+
+.add-scorer-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.add-scorer-form select { flex: 1; min-width: 140px; }
 
 /* MVP voting */
 

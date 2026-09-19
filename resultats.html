@@ -13,8 +13,13 @@
 
 <header class="app-hero">
   <div class="app-hero-inner">
-    <h1>Résultats</h1>
-    <p class="tagline">Espérance Breizhilienne — Foot à 7</p>
+    <div class="app-hero-top">
+      <div>
+        <h1>Résultats</h1>
+        <p class="tagline">Espérance Breizhilienne — Foot à 7</p>
+      </div>
+      <div class="identity-bar" id="identityBar"></div>
+    </div>
     <nav class="app-nav">
       <a href="index.html">Accueil</a>
       <a href="equipe.html">Effectif</a>
@@ -51,6 +56,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
+<script src="js/identity.js"></script>
 <script src="js/ui.js"></script>
 <script>
 const MIN_MVP_VOTES = 3; // en dessous, un vote isolé ne suffit pas à désigner un MVP
@@ -205,26 +211,86 @@ async function buildMatchCard(m) {
     goalsField.innerHTML = `
       <label>Buteurs</label>
       <div class="scorers-list"></div>
+      <div class="add-scorer-form" style="display:none"></div>
+      <button class="btn secondary small" data-action="addScorer" type="button" style="margin-top:6px">+ Ajouter un buteur</button>
     `;
-    const scorersList = goalsField.querySelector(".scorers-list");
-    for (const p of participants) {
-      const row = document.createElement("div");
-      row.className = "scorer-row";
-      row.innerHTML = `
-        <span>${escapeHtml(p.name)}</span>
-        <input type="number" min="0" class="score-input small" data-player-id="${p.id}" aria-label="Buts de ${escapeHtml(p.name)}" value="${goalsByPlayer[p.id] || 0}">
-      `;
-      row.querySelector("input").addEventListener("change", async (e) => {
-        await db.setGoals({
-          matchId: m.id,
-          playerId: p.id,
-          count: parseInt(e.target.value, 10) || 0,
-        });
-        showToast(`But(s) de ${p.name} enregistré(s).`);
-      });
-      scorersList.appendChild(row);
-    }
     card.appendChild(goalsField);
+
+    const scorersList = goalsField.querySelector(".scorers-list");
+    const addForm = goalsField.querySelector(".add-scorer-form");
+    const addBtn = goalsField.querySelector('[data-action="addScorer"]');
+
+    function scorers() {
+      return participants
+        .filter((p) => (goalsByPlayer[p.id] || 0) > 0)
+        .sort((a, b) => (goalsByPlayer[b.id] || 0) - (goalsByPlayer[a.id] || 0) || a.name.localeCompare(b.name));
+    }
+
+    function remainingPlayers() {
+      return participants.filter((p) => !(goalsByPlayer[p.id] > 0)).sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    async function updateGoal(playerId, count) {
+      if (count > 0) goalsByPlayer[playerId] = count;
+      else delete goalsByPlayer[playerId];
+      await db.setGoals({ matchId: m.id, playerId, count });
+      renderScorers();
+    }
+
+    function renderScorers() {
+      scorersList.innerHTML = "";
+      const current = scorers();
+      if (current.length === 0) {
+        scorersList.innerHTML = '<p style="font-size:.82rem;color:var(--muted);margin:0">Aucun buteur pour l\'instant.</p>';
+      }
+      for (const p of current) {
+        const row = document.createElement("div");
+        row.className = "scorer-row";
+        row.innerHTML = `
+          <span class="scorer-name">${escapeHtml(p.name)}</span>
+          <span class="scorer-controls">
+            <button type="button" class="step-btn" data-action="dec" aria-label="Retirer un but à ${escapeAttr(p.name)}">−</button>
+            <span class="scorer-count">${goalsByPlayer[p.id]}</span>
+            <button type="button" class="step-btn" data-action="inc" aria-label="Ajouter un but à ${escapeAttr(p.name)}">+</button>
+            <button type="button" class="scorer-remove" data-action="remove" aria-label="Retirer ${escapeAttr(p.name)} des buteurs">×</button>
+          </span>
+        `;
+        row.querySelector('[data-action="dec"]').addEventListener("click", () => updateGoal(p.id, (goalsByPlayer[p.id] || 0) - 1));
+        row.querySelector('[data-action="inc"]').addEventListener("click", () => updateGoal(p.id, (goalsByPlayer[p.id] || 0) + 1));
+        row.querySelector('[data-action="remove"]').addEventListener("click", () => updateGoal(p.id, 0));
+        scorersList.appendChild(row);
+      }
+      addBtn.style.display = remainingPlayers().length === 0 ? "none" : "inline-flex";
+    }
+
+    addBtn.addEventListener("click", () => {
+      const remaining = remainingPlayers();
+      if (remaining.length === 0) return;
+      addForm.innerHTML = `
+        <select data-role="scorerSelect" autocomplete="off" aria-label="Choisir le buteur">
+          ${remaining.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("")}
+        </select>
+        <input type="number" min="1" value="1" class="score-input small" data-role="scorerCount" aria-label="Nombre de buts">
+        <button class="btn small" type="button" data-action="confirmAddScorer">Ajouter</button>
+        <button class="btn secondary small" type="button" data-action="cancelAddScorer">Annuler</button>
+      `;
+      addForm.style.display = "flex";
+      addBtn.style.display = "none";
+      addForm.querySelector('[data-action="cancelAddScorer"]').addEventListener("click", () => {
+        addForm.style.display = "none";
+        addForm.innerHTML = "";
+        addBtn.style.display = "inline-flex";
+      });
+      addForm.querySelector('[data-action="confirmAddScorer"]').addEventListener("click", async () => {
+        const playerId = addForm.querySelector('[data-role="scorerSelect"]').value;
+        const count = parseInt(addForm.querySelector('[data-role="scorerCount"]').value, 10) || 1;
+        addForm.style.display = "none";
+        addForm.innerHTML = "";
+        await updateGoal(playerId, count);
+      });
+    });
+
+    renderScorers();
   } else {
     const note = document.createElement("p");
     note.style.cssText = "font-size:.82rem;color:var(--muted);margin:0";
@@ -244,6 +310,10 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/"/g, "&quot;");
 }
 
 init();

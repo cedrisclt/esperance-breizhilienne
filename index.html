@@ -31,6 +31,7 @@
       <a href="resultats.html">Résultats</a>
       <a href="recap.html">Récap</a>
     </nav>
+    <div class="identity-bar identity-bar--center" id="identityBar"></div>
   </div>
 </header>
 
@@ -91,6 +92,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
+<script src="js/identity.js"></script>
 <script>
 async function initDropWidget() {
   if (!db.isConfigured()) return;
