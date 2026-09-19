@@ -758,6 +758,13 @@ main.app-main {
   font-size: .95rem;
   text-align: center;
   font-family: inherit;
+  -moz-appearance: textfield;
+}
+
+.score-input::-webkit-outer-spin-button,
+.score-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .score-input.small {

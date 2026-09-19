@@ -53,6 +53,8 @@
 <script src="js/db.js"></script>
 <script src="js/ui.js"></script>
 <script>
+const MIN_MVP_VOTES = 3; // en dessous, un vote isolé ne suffit pas à désigner un MVP
+
 let players = [];
 let playersById = {};
 
@@ -102,7 +104,7 @@ async function buildMatchCard(m) {
 
   const tally = {};
   for (const v of votes) tally[v.voted_for_id] = (tally[v.voted_for_id] || 0) + 1;
-  const maxVotes = Math.max(0, ...Object.values(tally));
+  const maxVotes = votes.length >= MIN_MVP_VOTES ? Math.max(0, ...Object.values(tally)) : -1;
   const mvpNames = Object.entries(tally)
     .filter(([, c]) => c === maxVotes && c > 0)
     .map(([id]) => playersById[id]?.name)
@@ -117,7 +119,13 @@ async function buildMatchCard(m) {
     </div>
     <div class="match-details" style="margin-bottom:14px">
       <div><strong>Date</strong> ${formatDate(m.match_date)}</div>
-      <div><strong>MVP</strong> ${mvpNames.length ? "🏆 " + mvpNames.map(escapeHtml).join(", ") : "— (personne n'a encore voté)"}</div>
+      <div><strong>MVP</strong> ${
+        mvpNames.length
+          ? "🏆 " + mvpNames.map(escapeHtml).join(", ")
+          : votes.length === 0
+          ? "— (personne n'a encore voté)"
+          : `— (${votes.length}/${MIN_MVP_VOTES} votes, pas encore assez pour désigner un MVP)`
+      }</div>
     </div>
 
     <div class="field">

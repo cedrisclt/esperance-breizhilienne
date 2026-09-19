@@ -69,6 +69,7 @@
 <script src="js/db.js"></script>
 <script>
 const POSITION_LABEL = { GK: "Gardien", DEF: "Défenseur", MID: "Milieu", ATT: "Attaquant" };
+const MIN_MVP_VOTES = 3; // en dessous, un vote isolé ne suffit pas à désigner un MVP
 
 async function init() {
   if (!db.isConfigured()) {
@@ -99,14 +100,18 @@ async function init() {
     goalCounts[g.player_id] = (goalCounts[g.player_id] || 0) + g.count;
   }
 
-  // Pour chaque match, le(s) joueur(s) avec le plus de votes remporte(nt) le MVP du match.
+  // Pour chaque match, le(s) joueur(s) avec le plus de votes remporte(nt) le MVP du match
+  // — seulement si assez de monde a voté (sinon un vote isolé désignerait un MVP).
   const votesByMatch = {};
+  const totalVotesByMatch = {};
   for (const v of mvpVotes) {
     if (!pastMatchIds.has(v.match_id)) continue;
     (votesByMatch[v.match_id] ||= {})[v.voted_for_id] = (votesByMatch[v.match_id]?.[v.voted_for_id] || 0) + 1;
+    totalVotesByMatch[v.match_id] = (totalVotesByMatch[v.match_id] || 0) + 1;
   }
   const mvpWins = Object.fromEntries(players.map((p) => [p.id, 0]));
-  for (const tally of Object.values(votesByMatch)) {
+  for (const [matchId, tally] of Object.entries(votesByMatch)) {
+    if ((totalVotesByMatch[matchId] || 0) < MIN_MVP_VOTES) continue;
     const max = Math.max(...Object.values(tally));
     if (max === 0) continue;
     for (const [playerId, count] of Object.entries(tally)) {

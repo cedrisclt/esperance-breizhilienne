@@ -64,6 +64,8 @@
 <script src="js/db.js"></script>
 <script src="js/ui.js"></script>
 <script>
+const MIN_MVP_VOTES = 3; // en dessous, un vote isolé ne suffit pas à désigner un MVP
+
 let players = [];
 let playersById = {};
 let pastMatches = [];
@@ -143,7 +145,7 @@ function renderMatches() {
 
     const tally = {};
     for (const v of votes) tally[v.voted_for_id] = (tally[v.voted_for_id] || 0) + 1;
-    const maxVotes = Math.max(0, ...Object.values(tally));
+    const maxVotes = votes.length >= MIN_MVP_VOTES ? Math.max(0, ...Object.values(tally)) : -1;
 
     const card = document.createElement("div");
     card.className = "card";
