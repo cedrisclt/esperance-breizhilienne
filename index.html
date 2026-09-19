@@ -93,6 +93,7 @@
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
 <script src="js/identity.js"></script>
+<script src="js/ui.js"></script>
 <script>
 let dropWidgetGen = 0;
 async function initDropWidget() {
@@ -145,7 +146,9 @@ async function initDropWidget() {
     if (mine && mine.status === "disponible") {
       btn.textContent = "✅ Tu es dedans — Se désister";
       btn.className = "btn secondary";
-      btn.addEventListener("click", async () => {
+      btn.addEventListener("click", async (e) => {
+        const ok = await confirmAction(e.target, `Te désister en tant que ${Identity.getPlayer()?.name || "?"} ?`);
+        if (!ok) return;
         await db.withdraw({ matchId: next.id, playerId });
         initDropWidget();
       });
@@ -156,14 +159,18 @@ async function initDropWidget() {
       const pos = waitlist.findIndex((a) => a.player_id === playerId) + 1;
       btn.textContent = `🕒 Liste d'attente (position ${pos}) — Se désister`;
       btn.className = "btn secondary";
-      btn.addEventListener("click", async () => {
+      btn.addEventListener("click", async (e) => {
+        const ok = await confirmAction(e.target, `Te désister en tant que ${Identity.getPlayer()?.name || "?"} ?`);
+        if (!ok) return;
         await db.withdraw({ matchId: next.id, playerId });
         initDropWidget();
       });
     } else {
       btn.textContent = confirmedCount < next.capacity ? "Je suis dispo 🎯" : "Je suis dispo (liste d'attente)";
       btn.className = "btn";
-      btn.addEventListener("click", async () => {
+      btn.addEventListener("click", async (e) => {
+        const ok = await confirmAction(e.target, `T'inscrire au match en tant que ${Identity.getPlayer()?.name || "?"} ?`);
+        if (!ok) return;
         await db.claimSpot({ matchId: next.id, playerId, capacity: next.capacity });
         initDropWidget();
       });

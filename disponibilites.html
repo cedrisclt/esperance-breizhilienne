@@ -55,6 +55,7 @@
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
 <script src="js/identity.js"></script>
+<script src="js/ui.js"></script>
 <script>
 let players = [];
 let playersById = {};
@@ -164,7 +165,9 @@ function renderMatches() {
         btn.textContent = "✅ Tu es dedans — Se désister";
         btn.className = "btn secondary";
         btn.style.width = "100%";
-        btn.addEventListener("click", async () => {
+        btn.addEventListener("click", async (e) => {
+          const ok = await confirmAction(e.target, `Te désister en tant que ${nameOf(playerId)} ?`);
+          if (!ok) return;
           await db.withdraw({ matchId: m.id, playerId });
           await loadAvailability();
           renderMatches();
@@ -174,14 +177,18 @@ function renderMatches() {
         btn.textContent = `🕒 Liste d'attente (position ${pos}) — Se désister`;
         btn.className = "btn secondary";
         btn.style.width = "100%";
-        btn.addEventListener("click", async () => {
+        btn.addEventListener("click", async (e) => {
+          const ok = await confirmAction(e.target, `Te désister en tant que ${nameOf(playerId)} ?`);
+          if (!ok) return;
           await db.withdraw({ matchId: m.id, playerId });
           await loadAvailability();
           renderMatches();
         });
       } else {
         btn.textContent = confirmed.length < m.capacity ? "Je suis dispo 🎯" : "Je suis dispo (liste d'attente)";
-        btn.addEventListener("click", async () => {
+        btn.addEventListener("click", async (e) => {
+          const ok = await confirmAction(e.target, `T'inscrire au match en tant que ${nameOf(playerId)} ?`);
+          if (!ok) return;
           await db.claimSpot({ matchId: m.id, playerId, capacity: m.capacity });
           await loadAvailability();
           renderMatches();

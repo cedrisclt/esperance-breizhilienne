@@ -167,6 +167,8 @@ function renderMatches() {
         <span class="mvp-count">${count}</span>
       `;
       row.addEventListener("click", async () => {
+        const ok = await confirmAction(row, `Voter pour ${p.name} en tant que ${playersById[playerId].name} ?`);
+        if (!ok) return;
         await db.voteMvp({ matchId: m.id, voterId: playerId, votedForId: p.id });
         await loadData();
         renderMatches();
