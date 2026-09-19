@@ -189,7 +189,7 @@ function renderMatches() {
         btn.addEventListener("click", async (e) => {
           const ok = await confirmAction(e.target, `T'inscrire au match en tant que ${nameOf(playerId)} ?`);
           if (!ok) return;
-          await db.claimSpot({ matchId: m.id, playerId, capacity: m.capacity });
+          await db.claimSpot({ matchId: m.id, playerId });
           await loadAvailability();
           renderMatches();
         });

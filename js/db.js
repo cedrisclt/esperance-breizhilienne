@@ -179,41 +179,31 @@ const db = (() => {
     },
 
     // "Drop" : réclame une place. Confirmé si une place reste dans la
-    // capacité du match, sinon mis en liste d'attente. Meilleur effort
-    // côté client (pas de verrou atomique) — suffisant pour une équipe
-    // amateur, un léger dépassement ponctuel n'est pas dramatique.
-    async claimSpot({ matchId, playerId, capacity }) {
+    // capacité du match, sinon mis en liste d'attente. La vérification de
+    // capacité et l'écriture se font en une seule opération atomique côté
+    // base (fonction claim_spot, verrouillée par match) pour rester
+    // correct même avec plusieurs joueurs qui cliquent au même moment.
+    async claimSpot({ matchId, playerId }) {
       assertConfigured();
-      const current = await this.getAvailabilityForMatch(matchId);
-      const confirmedCount = current.filter(
-        (a) => a.status === "disponible" && a.player_id !== playerId
-      ).length;
-      const status = confirmedCount < capacity ? "disponible" : "liste_attente";
-      await this.setAvailability({ matchId, playerId, status });
-      return status;
+      const { data, error } = await client.rpc("claim_spot", {
+        p_match_id: matchId,
+        p_player_id: playerId,
+      });
+      if (error) throw error;
+      return data; // 'disponible' ou 'liste_attente'
     },
 
     // Se retire (indisponible). Si le joueur libère une place confirmée,
-    // le premier de la liste d'attente est automatiquement promu.
+    // le premier de la liste d'attente est automatiquement promu. Atomique
+    // côté base (fonction withdraw_spot) pour rester correct même si
+    // plusieurs joueurs se désistent en même temps.
     async withdraw({ matchId, playerId }) {
       assertConfigured();
-      const current = await this.getAvailabilityForMatch(matchId);
-      const mine = current.find((a) => a.player_id === playerId);
-      const wasConfirmed = mine && mine.status === "disponible";
-      await this.setAvailability({ matchId, playerId, status: "indisponible" });
-
-      if (wasConfirmed) {
-        const waitlist = current
-          .filter((a) => a.status === "liste_attente" && a.player_id !== playerId)
-          .sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
-        if (waitlist.length > 0) {
-          await this.setAvailability({
-            matchId,
-            playerId: waitlist[0].player_id,
-            status: "disponible",
-          });
-        }
-      }
+      const { error } = await client.rpc("withdraw_spot", {
+        p_match_id: matchId,
+        p_player_id: playerId,
+      });
+      if (error) throw error;
     },
 
     async getMvpVotesForMatch(matchId) {

@@ -21,7 +21,17 @@ alter table players add column if not exists notes text;
 -- Un joueur peut avoir plusieurs postes (ex. {DEF,ATT}).
 -- Remplace l'ancienne colonne `position` (un seul poste).
 alter table players add column if not exists positions text[];
-update players set positions = array[position] where positions is null and position is not null;
+do $$
+begin
+  -- Ne backfill que si `position` existe encore (script déjà rejoué une
+  -- fois sur une base où elle a été supprimée par la ligne plus bas).
+  if exists (
+    select 1 from information_schema.columns
+    where table_name = 'players' and column_name = 'position'
+  ) then
+    update players set positions = array[position] where positions is null and position is not null;
+  end if;
+end $$;
 update players set positions = '{}' where positions is null;
 alter table players alter column positions set not null;
 alter table players alter column positions set default '{}';
@@ -124,6 +134,91 @@ create table if not exists goals (
   count integer not null default 1 check (count > 0),
   unique (match_id, player_id)
 );
+
+-- ───────────────────────── Drop atomique ───────────────────────────
+-- claimSpot/withdraw faisaient un "lire l'état puis écrire" côté client :
+-- deux joueurs cliquant à la même seconde sur la dernière place pouvaient
+-- tous les deux passer 'disponible' (dépassement de capacité), et deux
+-- désistements simultanés ne faisaient monter qu'un seul joueur de la
+-- liste d'attente au lieu de deux. Ces fonctions font tout en une seule
+-- opération côté base : `select ... for update` verrouille la ligne du
+-- match le temps de la transaction, donc les appels concurrents sur CE
+-- match s'exécutent l'un après l'autre (les autres matchs ne sont pas
+-- bloqués) — atomique même avec plusieurs utilisateurs simultanés.
+
+create or replace function claim_spot(p_match_id uuid, p_player_id uuid)
+returns text
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_capacity integer;
+  v_confirmed_count integer;
+  v_status text;
+begin
+  -- Verrouille la ligne du match : les appels concurrents sur CE match
+  -- s'exécutent l'un après l'autre ; les autres matchs ne sont pas bloqués.
+  select capacity into v_capacity from matches where id = p_match_id for update;
+  if not found then
+    raise exception 'Match % introuvable', p_match_id;
+  end if;
+
+  select count(*) into v_confirmed_count
+  from availability
+  where match_id = p_match_id and status = 'disponible' and player_id <> p_player_id;
+
+  v_status := case when v_confirmed_count < v_capacity then 'disponible' else 'liste_attente' end;
+
+  insert into availability (match_id, player_id, status, updated_at)
+  values (p_match_id, p_player_id, v_status, now())
+  on conflict (match_id, player_id)
+  do update set status = excluded.status, updated_at = excluded.updated_at;
+
+  return v_status;
+end;
+$$;
+
+create or replace function withdraw_spot(p_match_id uuid, p_player_id uuid)
+returns void
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_was_confirmed boolean;
+  v_promote_player_id uuid;
+begin
+  perform 1 from matches where id = p_match_id for update;
+  if not found then
+    raise exception 'Match % introuvable', p_match_id;
+  end if;
+
+  select (status = 'disponible') into v_was_confirmed
+  from availability
+  where match_id = p_match_id and player_id = p_player_id;
+
+  insert into availability (match_id, player_id, status, updated_at)
+  values (p_match_id, p_player_id, 'indisponible', now())
+  on conflict (match_id, player_id)
+  do update set status = 'indisponible', updated_at = now();
+
+  if coalesce(v_was_confirmed, false) then
+    select player_id into v_promote_player_id
+    from availability
+    where match_id = p_match_id and status = 'liste_attente' and player_id <> p_player_id
+    order by updated_at asc
+    limit 1;
+
+    if v_promote_player_id is not null then
+      update availability
+      set status = 'disponible', updated_at = now()
+      where match_id = p_match_id and player_id = v_promote_player_id;
+    end if;
+  end if;
+end;
+$$;
+
+grant execute on function claim_spot(uuid, uuid) to anon, authenticated;
+grant execute on function withdraw_spot(uuid, uuid) to anon, authenticated;
 
 -- ───────────────────────── Row Level Security ──────────────────────
 -- Pas d'authentification (accès via simple lien) : lecture ET écriture
