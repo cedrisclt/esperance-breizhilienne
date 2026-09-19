@@ -94,11 +94,13 @@
 <script src="js/db.js"></script>
 <script src="js/identity.js"></script>
 <script>
+let dropWidgetGen = 0;
 async function initDropWidget() {
+  const gen = ++dropWidgetGen;
   if (!db.isConfigured()) return;
   try {
     const matches = await db.listMatches({ upcomingOnly: true });
-    if (matches.length === 0) return;
+    if (gen !== dropWidgetGen || matches.length === 0) return;
     const next = [...matches].sort((a, b) => (a.match_date < b.match_date ? -1 : 1))[0];
 
     document.getElementById("dropCard").style.display = "block";
@@ -106,12 +108,7 @@ async function initDropWidget() {
     const opponentLine = `vs ${escapeHtml(next.opponent)} — ${formatDate(next.match_date)}`;
 
     const isOpen = !next.drop_at || new Date(next.drop_at) <= new Date();
-    if (isOpen) {
-      widget.innerHTML = `
-        <p style="margin:0 0 12px">${opponentLine}</p>
-        <a class="btn" href="disponibilites.html">✅ Dispos ouvertes — s'inscrire</a>
-      `;
-    } else {
+    if (!isOpen) {
       widget.innerHTML = `
         <p style="margin:0 0 12px">${opponentLine}</p>
         <div class="drop-locked">
@@ -120,14 +117,68 @@ async function initDropWidget() {
         </div>
       `;
       startCountdown();
+      return;
     }
+
+    widget.innerHTML = `<p style="margin:0 0 12px">${opponentLine}</p>`;
+
+    const playerId = Identity.getPlayerId();
+    if (!playerId) {
+      widget.innerHTML += `
+        <p style="font-size:.82rem;color:var(--muted);margin:0 0 12px">
+          Choisis qui tu es en haut de la page pour t'inscrire directement ici.
+        </p>
+        <a class="btn" href="disponibilites.html">✅ Dispos ouvertes — s'inscrire</a>
+      `;
+      return;
+    }
+
+    const availability = await db.getAvailabilityForMatch(next.id);
+    if (gen !== dropWidgetGen) return;
+    const mine = availability.find((a) => a.player_id === playerId);
+    const confirmedCount = availability.filter((a) => a.status === "disponible").length;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.style.width = "100%";
+
+    if (mine && mine.status === "disponible") {
+      btn.textContent = "✅ Tu es dedans — Se désister";
+      btn.className = "btn secondary";
+      btn.addEventListener("click", async () => {
+        await db.withdraw({ matchId: next.id, playerId });
+        initDropWidget();
+      });
+    } else if (mine && mine.status === "liste_attente") {
+      const waitlist = availability
+        .filter((a) => a.status === "liste_attente")
+        .sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+      const pos = waitlist.findIndex((a) => a.player_id === playerId) + 1;
+      btn.textContent = `🕒 Liste d'attente (position ${pos}) — Se désister`;
+      btn.className = "btn secondary";
+      btn.addEventListener("click", async () => {
+        await db.withdraw({ matchId: next.id, playerId });
+        initDropWidget();
+      });
+    } else {
+      btn.textContent = confirmedCount < next.capacity ? "Je suis dispo 🎯" : "Je suis dispo (liste d'attente)";
+      btn.className = "btn";
+      btn.addEventListener("click", async () => {
+        await db.claimSpot({ matchId: next.id, playerId, capacity: next.capacity });
+        initDropWidget();
+      });
+    }
+    widget.appendChild(btn);
   } catch (e) {
     // Page reste utilisable même si Supabase est indisponible.
   }
 }
 
+let countdownGen = 0;
 function startCountdown() {
+  const gen = ++countdownGen;
   const tick = () => {
+    if (gen !== countdownGen) return; // une inscription/désinscription a relancé un widget plus récent
     const el = document.querySelector(".countdown[data-drop-at]");
     if (!el) return;
     const diff = new Date(el.dataset.dropAt) - new Date();
@@ -161,6 +212,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+window.addEventListener("eb:identity-changed", initDropWidget);
 initDropWidget();
 </script>
 
