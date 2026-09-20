@@ -22,15 +22,33 @@ HERE = Path(__file__).resolve().parent
 INDEX_HTML = HERE / "index.html"
 CONFIG_JS = HERE / "js" / "config.js"
 
+# Le site source mélange l'heure dans le champ lieu, ex.
+# "La Courneuve – n°1B - 20h – 93 La Courneuve". On extrait l'heure et on
+# referme la coupure pour garder un lieu propre.
+TIME_IN_VENUE_RE = re.compile(r"\s*[-–]?\s*\b(\d{1,2})h(\d{2})?\b\s*")
+
 
 def pretty_name(name):
     return TEAM_NAME_DISPLAY if name.strip().upper() == TEAM_NAME else name
 
 
+def split_venue_time(venue):
+    """Returns (venue_sans_heure, "HH:MM" ou None)."""
+    m = TIME_IN_VENUE_RE.search(venue)
+    if not m:
+        return venue, None
+    hour, minute = int(m.group(1)), int(m.group(2) or 0)
+    time_str = f"{hour:02d}:{minute:02d}"
+    cleaned = venue[: m.start()] + " " + venue[m.end() :]
+    cleaned = re.sub(r"\s*[-–]\s*[-–]\s*", " – ", cleaned)  # double tiret laissé par la coupure
+    cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" -–").strip()
+    return cleaned, time_str
+
+
 def fetch_matches():
     resp = requests.get(CALENDAR_URL, timeout=20)
     resp.raise_for_status()
-    resp.encoding = "iso-8859-1"
+    resp.encoding = "cp1252"  # le site déclare iso-8859-1 mais sert en fait du windows-1252
     soup = BeautifulSoup(resp.text, "html.parser")
 
     matches = []
@@ -53,13 +71,15 @@ def fetch_matches():
                 date = datetime.date(int(year), int(month), int(day))
                 home = pretty_name(cells[2].get_text(strip=True))
                 away = pretty_name(cells[4].get_text(strip=True))
-                venue = cells[5].get_text(strip=True) if len(cells) > 5 else ""
+                venue_raw = cells[5].get_text(strip=True) if len(cells) > 5 else ""
+                venue, time_str = split_venue_time(venue_raw)
                 matches.append({
                     "date": date,
                     "competition": competition or "",
                     "home": home,
                     "away": away,
                     "venue": venue,
+                    "time": time_str,
                 })
     return matches
 
@@ -67,9 +87,12 @@ def fetch_matches():
 def render_calendar_rows(matches):
     rows = []
     for m in matches:
+        date_cell = m["date"].strftime("%d/%m/%Y")
+        if m.get("time"):
+            date_cell += f" &middot; {m['time']}"
         rows.append(
             "        <tr>\n"
-            f"          <td>{m['date'].strftime('%d/%m/%Y')}</td>\n"
+            f"          <td>{date_cell}</td>\n"
             f"          <td>{m['competition']}</td>\n"
             f"          <td>{m['home']} &ndash; {m['away']}</td>\n"
             f"          <td>{m['venue']}</td>\n"
@@ -85,6 +108,9 @@ def render_next_match_block(match):
         )
     home_is_us = match["home"] == TEAM_NAME_DISPLAY
     left, right = (match["away"], match["home"]) if home_is_us else (match["home"], match["away"])
+    date_line = match["date"].strftime("%d/%m/%Y")
+    if match.get("time"):
+        date_line += f" &middot; {match['time']}"
     return (
         f'      <div class="match-competition">{match["competition"]}</div>\n'
         '      <div class="match-teams">\n'
@@ -93,7 +119,7 @@ def render_next_match_block(match):
         f'        <span class="us">{right}</span>\n'
         "      </div>\n"
         '      <div class="match-details">\n'
-        f'        <div><strong>Date</strong> {match["date"].strftime("%d/%m/%Y")}</div>\n'
+        f'        <div><strong>Date</strong> {date_line}</div>\n'
         f'        <div><strong>Lieu</strong> {match["venue"]}</div>\n'
         "      </div>"
     )
@@ -157,7 +183,7 @@ def sync_matches_to_supabase(matches, config):
         opponent = m["away"] if home_is_us else m["home"]
         rows.append({
             "match_date": m["date"].isoformat(),
-            "match_time": None,
+            "match_time": m.get("time"),
             "competition": m["competition"],
             "opponent": opponent,
             "home_away": "domicile" if home_is_us else "exterieur",
