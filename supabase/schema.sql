@@ -135,6 +135,14 @@ create table if not exists goals (
   unique (match_id, player_id)
 );
 
+create table if not exists assists (
+  id uuid primary key default gen_random_uuid(),
+  match_id uuid not null references matches(id) on delete cascade,
+  player_id uuid not null references players(id) on delete cascade,
+  count integer not null default 1 check (count > 0),
+  unique (match_id, player_id)
+);
+
 -- ───────────────────────── Drop atomique ───────────────────────────
 -- claimSpot/withdraw faisaient un "lire l'état puis écrire" côté client :
 -- deux joueurs cliquant à la même seconde sur la dernière place pouvaient
@@ -220,6 +228,50 @@ $$;
 grant execute on function claim_spot(uuid, uuid) to anon, authenticated;
 grant execute on function withdraw_spot(uuid, uuid) to anon, authenticated;
 
+-- ─────────────────────────── Vote MVP ──────────────────────────────
+-- L'UI ne propose déjà comme votant et comme cible que les joueurs
+-- marqués "disponible" sur le match, mais rien ne l'imposait côté base
+-- (accès public, donc contournable). Cette fonction fait respecter la
+-- règle "seuls les joueurs du match peuvent voter, et uniquement pour
+-- un autre joueur du match" au niveau des données, pas juste de l'UI.
+create or replace function vote_mvp(p_match_id uuid, p_voter_id uuid, p_voted_for_id uuid)
+returns mvp_votes
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_row mvp_votes;
+begin
+  if p_voter_id = p_voted_for_id then
+    raise exception 'Impossible de voter pour soi-même';
+  end if;
+
+  if not exists (
+    select 1 from availability
+    where match_id = p_match_id and player_id = p_voter_id and status = 'disponible'
+  ) then
+    raise exception 'Seuls les joueurs ayant participé au match peuvent voter';
+  end if;
+
+  if not exists (
+    select 1 from availability
+    where match_id = p_match_id and player_id = p_voted_for_id and status = 'disponible'
+  ) then
+    raise exception 'Le joueur choisi n''a pas participé à ce match';
+  end if;
+
+  insert into mvp_votes (match_id, voter_id, voted_for_id)
+  values (p_match_id, p_voter_id, p_voted_for_id)
+  on conflict (match_id, voter_id)
+  do update set voted_for_id = excluded.voted_for_id
+  returning * into v_row;
+
+  return v_row;
+end;
+$$;
+
+grant execute on function vote_mvp(uuid, uuid, uuid) to anon, authenticated;
+
 -- ───────────────────────── Row Level Security ──────────────────────
 -- Pas d'authentification (accès via simple lien) : lecture ET écriture
 -- publiques pour la clé "anon". Convient à un usage d'équipe amateur,
@@ -231,6 +283,7 @@ alter table lineups enable row level security;
 alter table lineup_slots enable row level security;
 alter table mvp_votes enable row level security;
 alter table goals enable row level security;
+alter table assists enable row level security;
 
 drop policy if exists "public full access players" on players;
 create policy "public full access players" on players
@@ -260,8 +313,12 @@ drop policy if exists "public full access goals" on goals;
 create policy "public full access goals" on goals
   for all using (true) with check (true);
 
+drop policy if exists "public full access assists" on assists;
+create policy "public full access assists" on assists
+  for all using (true) with check (true);
+
 -- RLS policies alone don't grant access — Postgres still requires the
 -- base table privileges for the "anon" role used by the public API key.
 grant usage on schema public to anon, authenticated;
-grant select, insert, update, delete on players, matches, availability, lineups, lineup_slots, mvp_votes, goals
+grant select, insert, update, delete on players, matches, availability, lineups, lineup_slots, mvp_votes, goals, assists
   to anon, authenticated;

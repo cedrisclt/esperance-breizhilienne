@@ -43,7 +43,7 @@
   <section class="card">
     <h2>Récap de la saison</h2>
     <p style="font-size:.82rem;color:var(--muted);margin-top:-8px">
-      Matchs joués = confirmé (pas en liste d'attente). Buts et MVP viennent des onglets
+      Matchs joués = confirmé (pas en liste d'attente). Buts, passes décisives et MVP viennent des onglets
       <a href="resultats.html">Résultats</a> et <a href="mvp.html">MVP</a>. 👑 = meilleur total MVP de la saison.
     </p>
     <div class="table-scroll">
@@ -55,6 +55,7 @@
             <th>Poste</th>
             <th>Matchs</th>
             <th>Buts</th>
+            <th>Passes D.</th>
             <th>MVP</th>
           </tr>
         </thead>
@@ -83,16 +84,16 @@ async function init() {
     return;
   }
 
-  const [players, matches, availability, mvpVotes, goals] = await Promise.all([
+  const [players, matches, availability, mvpVotes, goals, assists] = await Promise.all([
     db.listPlayers(),
     db.listMatches(),
     db.listAllAvailability(),
     db.listAllMvpVotes(),
     db.listAllGoals(),
+    db.listAllAssists(),
   ]);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const pastMatchIds = new Set(matches.filter((m) => m.match_date < today).map((m) => m.id));
+  const pastMatchIds = new Set(matches.filter((m) => db.isPastMatch(m)).map((m) => m.id));
 
   const played = Object.fromEntries(players.map((p) => [p.id, 0]));
   for (const a of availability) {
@@ -104,6 +105,11 @@ async function init() {
   const goalCounts = Object.fromEntries(players.map((p) => [p.id, 0]));
   for (const g of goals) {
     goalCounts[g.player_id] = (goalCounts[g.player_id] || 0) + g.count;
+  }
+
+  const assistCounts = Object.fromEntries(players.map((p) => [p.id, 0]));
+  for (const a of assists) {
+    assistCounts[a.player_id] = (assistCounts[a.player_id] || 0) + a.count;
   }
 
   // Pour chaque match, le(s) joueur(s) avec le plus de votes remporte(nt) le MVP du match
@@ -126,7 +132,13 @@ async function init() {
   }
 
   const ranked = players
-    .map((p) => ({ ...p, played: played[p.id] || 0, goals: goalCounts[p.id] || 0, mvp: mvpWins[p.id] || 0 }))
+    .map((p) => ({
+      ...p,
+      played: played[p.id] || 0,
+      goals: goalCounts[p.id] || 0,
+      assists: assistCounts[p.id] || 0,
+      mvp: mvpWins[p.id] || 0,
+    }))
     .sort((a, b) => b.played - a.played || a.name.localeCompare(b.name));
 
   const topMvp = Math.max(0, ...ranked.map((p) => p.mvp));
@@ -134,7 +146,7 @@ async function init() {
   const body = document.getElementById("recapBody");
   body.innerHTML = "";
   if (ranked.length === 0) {
-    body.innerHTML = '<tr><td colspan="6" style="color:var(--muted)">Aucun joueur pour le moment.</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" style="color:var(--muted)">Aucun joueur pour le moment.</td></tr>';
     return;
   }
   ranked.forEach((p, i) => {
@@ -145,6 +157,7 @@ async function init() {
       <td>${p.positions.map((pos) => `<span class="position-badge ${pos}">${POSITION_LABEL[pos]}</span>`).join(" ")}</td>
       <td><strong>${p.played}</strong></td>
       <td>${p.goals}</td>
+      <td>${p.assists}</td>
       <td>${p.mvp > 0 && p.mvp === topMvp ? "👑 " : ""}${p.mvp}</td>
     `;
     body.appendChild(tr);

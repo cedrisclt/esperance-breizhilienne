@@ -68,6 +68,8 @@ let playersById = {};
 let pastMatches = [];
 let availabilityByMatch = {};
 let votesByMatch = {};
+let goalsByMatch = {};
+let assistsByMatch = {};
 
 async function init() {
   if (!db.isConfigured()) {
@@ -78,8 +80,7 @@ async function init() {
   playersById = Object.fromEntries(players.map((p) => [p.id, p]));
 
   const allMatches = await db.listMatches();
-  const today = new Date().toISOString().slice(0, 10);
-  pastMatches = allMatches.filter((m) => m.match_date < today).sort((a, b) => (a.match_date < b.match_date ? 1 : -1));
+  pastMatches = allMatches.filter((m) => db.isPastMatch(m)).sort((a, b) => (a.match_date < b.match_date ? 1 : -1));
 
   window.addEventListener("eb:identity-changed", renderMatches);
 
@@ -90,9 +91,19 @@ async function init() {
 async function loadData() {
   availabilityByMatch = {};
   votesByMatch = {};
+  goalsByMatch = {};
+  assistsByMatch = {};
   for (const m of pastMatches) {
-    availabilityByMatch[m.id] = await db.getAvailabilityForMatch(m.id);
-    votesByMatch[m.id] = await db.getMvpVotesForMatch(m.id);
+    const [availability, votes, goals, assists] = await Promise.all([
+      db.getAvailabilityForMatch(m.id),
+      db.getMvpVotesForMatch(m.id),
+      db.getGoalsForMatch(m.id),
+      db.getAssistsForMatch(m.id),
+    ]);
+    availabilityByMatch[m.id] = availability;
+    votesByMatch[m.id] = votes;
+    goalsByMatch[m.id] = Object.fromEntries(goals.map((g) => [g.player_id, g.count]));
+    assistsByMatch[m.id] = Object.fromEntries(assists.map((a) => [a.player_id, a.count]));
   }
 }
 
@@ -120,6 +131,8 @@ function renderMatches() {
       .map((a) => playersById[a.player_id])
       .filter(Boolean);
     const votes = votesByMatch[m.id] || [];
+    const goalsByPlayer = goalsByMatch[m.id] || {};
+    const assistsByPlayer = assistsByMatch[m.id] || {};
     const myVote = votes.find((v) => v.voter_id === playerId);
     const iPlayed = participants.some((p) => p.id === playerId);
 
@@ -158,12 +171,21 @@ function renderMatches() {
       if (p.id === playerId) continue; // pas d'auto-vote
       const count = tally[p.id] || 0;
       const isLeader = count > 0 && count === maxVotes;
+      const goals = goalsByPlayer[p.id] || 0;
+      const assists = assistsByPlayer[p.id] || 0;
+      const statsLine =
+        goals > 0 || assists > 0
+          ? `<span class="mvp-player-stats">⚽ ${goals} · 🎯 ${assists}</span>`
+          : "";
       const row = document.createElement("button");
       row.type = "button";
       row.className = "mvp-option" + (myVote && myVote.voted_for_id === p.id ? " selected" : "");
       row.disabled = !iPlayed;
       row.innerHTML = `
-        <span><span class="mvp-crown">${isLeader ? "👑" : ""}</span>${escapeHtml(p.name)}</span>
+        <span class="mvp-player">
+          <span class="mvp-player-name"><span class="mvp-crown">${isLeader ? "👑" : ""}</span>${escapeHtml(p.name)}</span>
+          ${statsLine}
+        </span>
         <span class="mvp-count">${count}</span>
       `;
       row.addEventListener("click", async () => {

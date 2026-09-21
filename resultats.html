@@ -41,7 +41,7 @@
   </div>
 
   <p style="font-size:.82rem;color:var(--muted)">
-    Score et buteurs à remplir à la main après chaque match. Le MVP affiché vient des votes de
+    Score, buteurs et passeurs à remplir à la main après chaque match. Le MVP affiché vient des votes de
     l'onglet <a href="mvp.html">MVP</a>.
   </p>
 
@@ -73,9 +73,8 @@ async function init() {
   playersById = Object.fromEntries(players.map((p) => [p.id, p]));
 
   const allMatches = await db.listMatches();
-  const today = new Date().toISOString().slice(0, 10);
   const pastMatches = allMatches
-    .filter((m) => m.match_date < today)
+    .filter((m) => db.isPastMatch(m))
     .sort((a, b) => (a.match_date < b.match_date ? 1 : -1));
 
   await renderMatches(pastMatches);
@@ -96,10 +95,11 @@ async function renderMatches(pastMatches) {
 }
 
 async function buildMatchCard(m) {
-  const [availability, votes, goals] = await Promise.all([
+  const [availability, votes, goals, assists] = await Promise.all([
     db.getAvailabilityForMatch(m.id),
     db.getMvpVotesForMatch(m.id),
     db.getGoalsForMatch(m.id),
+    db.getAssistsForMatch(m.id),
   ]);
   const availableIds = new Set(availability.filter((a) => a.status === "disponible").map((a) => a.player_id));
   const participants = players
@@ -107,6 +107,7 @@ async function buildMatchCard(m) {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const goalsByPlayer = Object.fromEntries(goals.map((g) => [g.player_id, g.count]));
+  const assistsByPlayer = Object.fromEntries(assists.map((a) => [a.player_id, a.count]));
 
   const tally = {};
   for (const v of votes) tally[v.voted_for_id] = (tally[v.voted_for_id] || 0) + 1;
@@ -206,99 +207,126 @@ async function buildMatchCard(m) {
   });
 
   if (participants.length > 0) {
-    const goalsField = document.createElement("div");
-    goalsField.className = "field";
-    goalsField.innerHTML = `
-      <label>Buteurs</label>
-      <div class="scorers-list"></div>
-      <div class="add-scorer-form" style="display:none"></div>
-      <button class="btn secondary small" data-action="addScorer" type="button" style="margin-top:6px">+ Ajouter un buteur</button>
-    `;
-    card.appendChild(goalsField);
-
-    const scorersList = goalsField.querySelector(".scorers-list");
-    const addForm = goalsField.querySelector(".add-scorer-form");
-    const addBtn = goalsField.querySelector('[data-action="addScorer"]');
-
-    function scorers() {
-      return participants
-        .filter((p) => (goalsByPlayer[p.id] || 0) > 0)
-        .sort((a, b) => (goalsByPlayer[b.id] || 0) - (goalsByPlayer[a.id] || 0) || a.name.localeCompare(b.name));
-    }
-
-    function remainingPlayers() {
-      return participants.filter((p) => !(goalsByPlayer[p.id] > 0)).sort((a, b) => a.name.localeCompare(b.name));
-    }
-
-    async function updateGoal(playerId, count) {
-      if (count > 0) goalsByPlayer[playerId] = count;
-      else delete goalsByPlayer[playerId];
-      await db.setGoals({ matchId: m.id, playerId, count });
-      renderScorers();
-    }
-
-    function renderScorers() {
-      scorersList.innerHTML = "";
-      const current = scorers();
-      if (current.length === 0) {
-        scorersList.innerHTML = '<p style="font-size:.82rem;color:var(--muted);margin:0">Aucun buteur pour l\'instant.</p>';
-      }
-      for (const p of current) {
-        const row = document.createElement("div");
-        row.className = "scorer-row";
-        row.innerHTML = `
-          <span class="scorer-name">${escapeHtml(p.name)}</span>
-          <span class="scorer-controls">
-            <button type="button" class="step-btn" data-action="dec" aria-label="Retirer un but à ${escapeAttr(p.name)}">−</button>
-            <span class="scorer-count">${goalsByPlayer[p.id]}</span>
-            <button type="button" class="step-btn" data-action="inc" aria-label="Ajouter un but à ${escapeAttr(p.name)}">+</button>
-            <button type="button" class="scorer-remove" data-action="remove" aria-label="Retirer ${escapeAttr(p.name)} des buteurs">×</button>
-          </span>
-        `;
-        row.querySelector('[data-action="dec"]').addEventListener("click", () => updateGoal(p.id, (goalsByPlayer[p.id] || 0) - 1));
-        row.querySelector('[data-action="inc"]').addEventListener("click", () => updateGoal(p.id, (goalsByPlayer[p.id] || 0) + 1));
-        row.querySelector('[data-action="remove"]').addEventListener("click", () => updateGoal(p.id, 0));
-        scorersList.appendChild(row);
-      }
-      addBtn.style.display = remainingPlayers().length === 0 ? "none" : "inline-flex";
-    }
-
-    addBtn.addEventListener("click", () => {
-      const remaining = remainingPlayers();
-      if (remaining.length === 0) return;
-      addForm.innerHTML = `
-        <select data-role="scorerSelect" autocomplete="off" aria-label="Choisir le buteur">
-          ${remaining.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("")}
-        </select>
-        <input type="number" min="1" value="1" class="score-input small" data-role="scorerCount" aria-label="Nombre de buts">
-        <button class="btn small" type="button" data-action="confirmAddScorer">Ajouter</button>
-        <button class="btn secondary small" type="button" data-action="cancelAddScorer">Annuler</button>
-      `;
-      addForm.style.display = "flex";
-      addBtn.style.display = "none";
-      addForm.querySelector('[data-action="cancelAddScorer"]').addEventListener("click", () => {
-        addForm.style.display = "none";
-        addForm.innerHTML = "";
-        addBtn.style.display = "inline-flex";
-      });
-      addForm.querySelector('[data-action="confirmAddScorer"]').addEventListener("click", async () => {
-        const playerId = addForm.querySelector('[data-role="scorerSelect"]').value;
-        const count = parseInt(addForm.querySelector('[data-role="scorerCount"]').value, 10) || 1;
-        addForm.style.display = "none";
-        addForm.innerHTML = "";
-        await updateGoal(playerId, count);
-      });
-    });
-
-    renderScorers();
+    card.appendChild(
+      buildStatSection({
+        label: "Buteurs",
+        emptyLabel: "Aucun buteur pour l'instant.",
+        addLabel: "+ Ajouter un buteur",
+        participants,
+        statsByPlayer: goalsByPlayer,
+        onChange: (playerId, count) => db.setGoals({ matchId: m.id, playerId, count }),
+      })
+    );
+    card.appendChild(
+      buildStatSection({
+        label: "Passes décisives",
+        emptyLabel: "Aucune passe décisive pour l'instant.",
+        addLabel: "+ Ajouter un passeur",
+        participants,
+        statsByPlayer: assistsByPlayer,
+        onChange: (playerId, count) => db.setAssists({ matchId: m.id, playerId, count }),
+      })
+    );
   } else {
     const note = document.createElement("p");
     note.style.cssText = "font-size:.82rem;color:var(--muted);margin:0";
-    note.textContent = "Aucun participant enregistré pour ce match — pas de buteurs à saisir.";
+    note.textContent = "Aucun participant enregistré pour ce match — pas de buteurs/passeurs à saisir.";
     card.appendChild(note);
   }
 
   return card;
+}
+
+// Section "Buteurs" ou "Passes décisives" : liste compacte des joueurs
+// ayant un compteur > 0, avec +/-/retirer, et un bouton pour en ajouter un
+// depuis les participants restants. Partagée entre les deux stats, qui ne
+// diffèrent que par leurs libellés et où l'écriture atterrit (buts/passes).
+function buildStatSection({ label, emptyLabel, addLabel, participants, statsByPlayer, onChange }) {
+  const field = document.createElement("div");
+  field.className = "field";
+  field.innerHTML = `
+    <label>${label}</label>
+    <div class="scorers-list"></div>
+    <div class="add-scorer-form" style="display:none"></div>
+    <button class="btn secondary small" data-action="add" type="button" style="margin-top:6px">${addLabel}</button>
+  `;
+
+  const list = field.querySelector(".scorers-list");
+  const addForm = field.querySelector(".add-scorer-form");
+  const addBtn = field.querySelector('[data-action="add"]');
+
+  function entries() {
+    return participants
+      .filter((p) => (statsByPlayer[p.id] || 0) > 0)
+      .sort((a, b) => (statsByPlayer[b.id] || 0) - (statsByPlayer[a.id] || 0) || a.name.localeCompare(b.name));
+  }
+
+  function remainingPlayers() {
+    return participants.filter((p) => !(statsByPlayer[p.id] > 0)).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async function update(playerId, count) {
+    if (count > 0) statsByPlayer[playerId] = count;
+    else delete statsByPlayer[playerId];
+    await onChange(playerId, count);
+    render();
+  }
+
+  function render() {
+    list.innerHTML = "";
+    const current = entries();
+    if (current.length === 0) {
+      list.innerHTML = `<p style="font-size:.82rem;color:var(--muted);margin:0">${escapeHtml(emptyLabel)}</p>`;
+    }
+    for (const p of current) {
+      const row = document.createElement("div");
+      row.className = "scorer-row";
+      row.innerHTML = `
+        <span class="scorer-name">${escapeHtml(p.name)}</span>
+        <span class="scorer-controls">
+          <button type="button" class="step-btn" data-action="dec" aria-label="Retirer à ${escapeAttr(p.name)}">−</button>
+          <span class="scorer-count">${statsByPlayer[p.id]}</span>
+          <button type="button" class="step-btn" data-action="inc" aria-label="Ajouter à ${escapeAttr(p.name)}">+</button>
+          <button type="button" class="scorer-remove" data-action="remove" aria-label="Retirer ${escapeAttr(p.name)}">×</button>
+        </span>
+      `;
+      row.querySelector('[data-action="dec"]').addEventListener("click", () => update(p.id, (statsByPlayer[p.id] || 0) - 1));
+      row.querySelector('[data-action="inc"]').addEventListener("click", () => update(p.id, (statsByPlayer[p.id] || 0) + 1));
+      row.querySelector('[data-action="remove"]').addEventListener("click", () => update(p.id, 0));
+      list.appendChild(row);
+    }
+    addBtn.style.display = remainingPlayers().length === 0 ? "none" : "inline-flex";
+  }
+
+  addBtn.addEventListener("click", () => {
+    const remaining = remainingPlayers();
+    if (remaining.length === 0) return;
+    addForm.innerHTML = `
+      <select data-role="select" autocomplete="off" aria-label="Choisir le joueur">
+        ${remaining.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("")}
+      </select>
+      <input type="number" min="1" value="1" class="score-input small" data-role="count" aria-label="Nombre">
+      <button class="btn small" type="button" data-action="confirm">Ajouter</button>
+      <button class="btn secondary small" type="button" data-action="cancel">Annuler</button>
+    `;
+    addForm.style.display = "flex";
+    addBtn.style.display = "none";
+    addForm.querySelector('[data-action="cancel"]').addEventListener("click", () => {
+      addForm.style.display = "none";
+      addForm.innerHTML = "";
+      addBtn.style.display = "inline-flex";
+    });
+    addForm.querySelector('[data-action="confirm"]').addEventListener("click", async () => {
+      const playerId = addForm.querySelector('[data-role="select"]').value;
+      const count = parseInt(addForm.querySelector('[data-role="count"]').value, 10) || 1;
+      addForm.style.display = "none";
+      addForm.innerHTML = "";
+      await update(playerId, count);
+    });
+  });
+
+  render();
+  return field;
 }
 
 function formatDate(dateStr) {

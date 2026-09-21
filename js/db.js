@@ -68,14 +68,19 @@ const db = (() => {
 
     async listMatches({ upcomingOnly = false } = {}) {
       assertConfigured();
-      let q = client.from("matches").select("*").order("match_date");
-      if (upcomingOnly) {
-        const today = new Date().toISOString().slice(0, 10);
-        q = q.gte("match_date", today);
-      }
-      const { data, error } = await q;
+      const { data, error } = await client.from("matches").select("*").order("match_date");
       if (error) throw error;
-      return data;
+      return upcomingOnly ? data.filter((m) => !this.isPastMatch(m)) : data;
+    },
+
+    // Un match est "passé" (éligible aux résultats/MVP, plus proposé aux
+    // dispos) une fois sa date+heure dépassée — pas juste sa date, sinon un
+    // match du jour reste "à venir" jusqu'au lendemain même joué le matin.
+    // Sans heure connue, on retombe sur la fin de journée (comportement
+    // précédent : passé seulement le jour suivant).
+    isPastMatch(match, now = new Date()) {
+      const time = match.match_time || "23:59";
+      return new Date(`${match.match_date}T${time}:00`) <= now;
     },
 
     async addMatch({ match_date, match_time, competition, opponent, home_away, venue, drop_at, capacity }) {
@@ -255,16 +260,51 @@ const db = (() => {
       return data;
     },
 
-    async voteMvp({ matchId, voterId, votedForId }) {
+    async getAssistsForMatch(matchId) {
       assertConfigured();
+      const { data, error } = await client.from("assists").select("*").eq("match_id", matchId);
+      if (error) throw error;
+      return data;
+    },
+
+    async listAllAssists() {
+      assertConfigured();
+      const { data, error } = await client.from("assists").select("*");
+      if (error) throw error;
+      return data;
+    },
+
+    // count = 0 retire le passeur (pas de ligne à 0 en base).
+    async setAssists({ matchId, playerId, count }) {
+      assertConfigured();
+      if (!count || count <= 0) {
+        const { error } = await client
+          .from("assists")
+          .delete()
+          .eq("match_id", matchId)
+          .eq("player_id", playerId);
+        if (error) throw error;
+        return null;
+      }
       const { data, error } = await client
-        .from("mvp_votes")
-        .upsert(
-          { match_id: matchId, voter_id: voterId, voted_for_id: votedForId },
-          { onConflict: "match_id,voter_id" }
-        )
+        .from("assists")
+        .upsert({ match_id: matchId, player_id: playerId, count }, { onConflict: "match_id,player_id" })
         .select()
         .single();
+      if (error) throw error;
+      return data;
+    },
+
+    // Le vote (auto-vote exclu, et voter + cible doivent tous les deux avoir
+    // participé au match) est vérifié côté base par la fonction vote_mvp —
+    // un simple upsert client ne peut pas garantir cette règle.
+    async voteMvp({ matchId, voterId, votedForId }) {
+      assertConfigured();
+      const { data, error } = await client.rpc("vote_mvp", {
+        p_match_id: matchId,
+        p_voter_id: voterId,
+        p_voted_for_id: votedForId,
+      });
       if (error) throw error;
       return data;
     },
