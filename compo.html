@@ -107,7 +107,9 @@ async function init() {
     return;
   }
   players = await db.listPlayers();
-  matches = await db.listMatches({ upcomingOnly: true });
+  // Tous les matchs, pas seulement à venir : une compo doit rester
+  // consultable/modifiable après coup, contrairement aux dispos.
+  matches = await db.listMatches();
 
   const matchSelect = document.getElementById("matchSelect");
   matchSelect.innerHTML = '<option value="">— Choisir —</option>';
@@ -126,8 +128,10 @@ async function init() {
   );
 
   if (matches.length > 0) {
-    matchSelect.value = matches[0].id;
-    loadMatch(matches[0].id);
+    // Priorité au prochain match à venir ; sinon le plus récent déjà joué.
+    const defaultMatch = matches.find((m) => !db.isPastMatch(m)) || matches[matches.length - 1];
+    matchSelect.value = defaultMatch.id;
+    loadMatch(defaultMatch.id);
   }
 }
 
