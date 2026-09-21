@@ -32,6 +32,14 @@ def pretty_name(name):
     return TEAM_NAME_DISPLAY if name.strip().upper() == TEAM_NAME else name
 
 
+def match_datetime(match):
+    """Combine date + time (23:59 si l'heure est inconnue, pour rester
+    "à venir" jusqu'à la fin de la journée comme avant). Miroir de
+    db.isPastMatch côté JS."""
+    hour, minute = map(int, (match.get("time") or "23:59").split(":"))
+    return datetime.datetime.combine(match["date"], datetime.time(hour, minute))
+
+
 def split_venue_time(venue):
     """Returns (venue_sans_heure, "HH:MM" ou None)."""
     m = TIME_IN_VENUE_RE.search(venue)
@@ -129,8 +137,9 @@ def update_index_html(matches):
     html = INDEX_HTML.read_text(encoding="utf-8")
 
     today = datetime.date.today()
-    upcoming = [m for m in matches if m["date"] >= today]
-    next_match = min(upcoming, key=lambda m: m["date"]) if upcoming else None
+    now = datetime.datetime.now()
+    upcoming = [m for m in matches if match_datetime(m) >= now]
+    next_match = min(upcoming, key=match_datetime) if upcoming else None
 
     match_block = render_next_match_block(next_match)
     html = re.sub(
