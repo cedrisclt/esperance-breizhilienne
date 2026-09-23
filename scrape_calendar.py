@@ -9,6 +9,7 @@ index.html untouched in that case.
 import datetime
 import re
 import sys
+import zoneinfo
 from pathlib import Path
 
 import requests
@@ -21,6 +22,8 @@ TEAM_NAME_DISPLAY = "Espérance Breizhilienne"
 HERE = Path(__file__).resolve().parent
 INDEX_HTML = HERE / "index.html"
 CONFIG_JS = HERE / "js" / "config.js"
+PARIS_TZ = zoneinfo.ZoneInfo("Europe/Paris")
+DROP_HOUR = 18  # convention de l'équipe : drop à 18h (mercredi de la semaine avant le match)
 
 # Le site source mélange l'heure dans le champ lieu, ex.
 # "La Courneuve – n°1B - 20h – 93 La Courneuve". On extrait l'heure et on
@@ -38,6 +41,17 @@ def match_datetime(match):
     db.isPastMatch côté JS."""
     hour, minute = map(int, (match.get("time") or "23:59").split(":"))
     return datetime.datetime.combine(match["date"], datetime.time(hour, minute))
+
+
+def compute_drop_at(match_date):
+    """Mercredi 18h (heure de Paris) de la semaine précédant le match, en
+    ISO UTC pour Supabase. weekday() = 0 pour lundi ; le mercredi de la
+    semaine d'avant tombe donc (weekday + 5) jours avant le match, quel
+    que soit le jour de la semaine du match lui-même."""
+    days_back = match_date.weekday() + 5
+    drop_date = match_date - datetime.timedelta(days=days_back)
+    local_dt = datetime.datetime.combine(drop_date, datetime.time(DROP_HOUR, 0), tzinfo=PARIS_TZ)
+    return local_dt.astimezone(datetime.timezone.utc).isoformat()
 
 
 def split_venue_time(venue):
@@ -183,13 +197,30 @@ def read_supabase_config():
     return {"url": url.rstrip("/"), "key": key}
 
 
+def fetch_existing_match_keys(config):
+    resp = requests.get(
+        f"{config['url']}/rest/v1/matches",
+        params={"select": "match_date,opponent,competition"},
+        headers={"apikey": config["key"], "Authorization": f"Bearer {config['key']}"},
+        timeout=20,
+    )
+    resp.raise_for_status()
+    return {(row["match_date"], row["opponent"], row["competition"]) for row in resp.json()}
+
+
 def sync_matches_to_supabase(matches, config):
     """Upsert scraped matches into the Supabase `matches` table so the
     disponibilités/compositions pages pick them up automatically."""
+    existing_keys = fetch_existing_match_keys(config)
+
     rows = []
+    new_matches = []
     for m in matches:
         home_is_us = m["home"] == TEAM_NAME_DISPLAY
         opponent = m["away"] if home_is_us else m["home"]
+        key = (m["date"].isoformat(), opponent, m["competition"])
+        if key not in existing_keys:
+            new_matches.append((key, m))
         rows.append({
             "match_date": m["date"].isoformat(),
             "match_time": m.get("time"),
@@ -212,7 +243,40 @@ def sync_matches_to_supabase(matches, config):
         timeout=20,
     )
     resp.raise_for_status()
+
+    for key, m in new_matches:
+        set_default_drop_at(key, m["date"], config)
+
     return len(rows)
+
+
+def set_default_drop_at(key, match_date, config):
+    """Programme le drop au mercredi 18h de la semaine précédente pour un
+    match qui vient d'apparaître. Filtré sur drop_at=is.null : ne touche
+    jamais un match déjà connu, qu'il ait été réglé automatiquement avant
+    ou modifié à la main dans l'onglet Matchs."""
+    match_date_str, opponent, competition = key
+    try:
+        resp = requests.patch(
+            f"{config['url']}/rest/v1/matches",
+            params={
+                "match_date": f"eq.{match_date_str}",
+                "opponent": f"eq.{opponent}",
+                "competition": f"eq.{competition}",
+                "drop_at": "is.null",
+            },
+            headers={
+                "apikey": config["key"],
+                "Authorization": f"Bearer {config['key']}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+            },
+            json={"drop_at": compute_drop_at(match_date)},
+            timeout=20,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        print(f"Avertissement: échec du réglage du drop pour {opponent} ({exc}).", file=sys.stderr)
 
 
 def main():
