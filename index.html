@@ -137,6 +137,30 @@ async function initDropWidget() {
         </div>
       `;
       startCountdown();
+
+      // Un joueur déjà marqué dispo avant l'ouverture (prioritaire, ou
+      // ajouté à la main) peut se désister par avance — la réclamation
+      // d'une place reste bloquée tant que le drop n'est pas ouvert.
+      const earlyPlayerId = Identity.getPlayerId();
+      if (earlyPlayerId) {
+        const availability = await db.getAvailabilityForMatch(next.id);
+        if (gen !== dropWidgetGen) return;
+        const mine = availability.find((a) => a.player_id === earlyPlayerId);
+        if (mine && mine.status === "disponible") {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn secondary";
+          btn.style.cssText = "width:100%;margin-top:10px";
+          btn.textContent = "✅ Tu es dedans — Se désister";
+          btn.addEventListener("click", async (e) => {
+            const ok = await confirmAction(e.target, `Te désister en tant que ${Identity.getPlayer()?.name || "?"} ?`);
+            if (!ok) return;
+            await db.withdraw({ matchId: next.id, playerId: earlyPlayerId });
+            initDropWidget();
+          });
+          widget.appendChild(btn);
+        }
+      }
       return;
     }
 

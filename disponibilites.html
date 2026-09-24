@@ -151,6 +151,24 @@ function renderMatches() {
           <span class="countdown" data-drop-at="${m.drop_at}"></span>
         </div>
       `;
+      // Un joueur déjà marqué dispo avant l'ouverture (prioritaire, ou
+      // ajouté à la main) peut se désister par avance — la réclamation
+      // d'une place, elle, reste bloquée tant que le drop n'est pas ouvert.
+      if (mine && mine.status === "disponible") {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn secondary";
+        btn.style.cssText = "width:100%;margin-top:10px";
+        btn.textContent = "✅ Tu es dedans — Se désister";
+        btn.addEventListener("click", async (e) => {
+          const ok = await confirmAction(e.target, `Te désister en tant que ${nameOf(playerId)} ?`);
+          if (!ok) return;
+          await db.withdraw({ matchId: m.id, playerId });
+          await loadAvailability();
+          renderMatches();
+        });
+        zone.appendChild(btn);
+      }
     } else {
       const capLine = document.createElement("div");
       capLine.style.marginBottom = "10px";
