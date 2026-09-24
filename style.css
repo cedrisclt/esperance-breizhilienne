@@ -491,14 +491,16 @@ main.app-main {
   font-size: .68rem;
   font-weight: 700;
   letter-spacing: .4px;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 20px;
-  color: #fff;
+  border: 1px solid transparent;
 }
-.position-badge.GK { background: #e0a100; }
-.position-badge.DEF { background: #2b6fb3; }
-.position-badge.MID { background: #2ea86a; }
-.position-badge.ATT { background: #c0392b; }
+/* Teintes dérivées de l'écusson (or/noir/rose) plutôt que 4 couleurs
+   franches sans rapport entre elles — différenciables mais assorties. */
+.position-badge.GK  { background: rgba(192,161,89,0.16); color: #8a6a2c; border-color: rgba(192,161,89,0.45); }
+.position-badge.DEF { background: rgba(22,18,26,0.07);   color: var(--noir); border-color: rgba(22,18,26,0.2); }
+.position-badge.MID { background: rgba(225,137,162,0.18); color: var(--pink-dark); border-color: rgba(225,137,162,0.5); }
+.position-badge.ATT { background: rgba(168,70,47,0.14);  color: #a8462f; border-color: rgba(168,70,47,0.4); }
 
 .player-row {
   display: flex;
