@@ -332,6 +332,19 @@ nav.app-nav a.active {
   flex-wrap: wrap;
 }
 
+.app-hero-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-crest {
+  width: 38px;
+  height: auto;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.35));
+}
+
 .identity-bar {
   display: flex;
   align-items: center;
