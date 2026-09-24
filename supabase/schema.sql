@@ -246,6 +246,10 @@ begin
     raise exception 'Impossible de voter pour soi-même';
   end if;
 
+  if not is_editable_match(p_match_id) then
+    raise exception 'Ce match est verrouillé (un match plus récent a déjà eu lieu) : impossible de voter.';
+  end if;
+
   if not exists (
     select 1 from availability
     where match_id = p_match_id and player_id = p_voter_id and status = 'disponible'
@@ -271,6 +275,114 @@ end;
 $$;
 
 grant execute on function vote_mvp(uuid, uuid, uuid) to anon, authenticated;
+
+-- ─────────────────────── Verrouillage des matchs passés ────────────
+-- Un match reste modifiable (score, buteurs, passes décisives, votes
+-- MVP) tant qu'aucun match plus récent n'a lui-même déjà eu lieu. Dès
+-- qu'un nouveau match est passé, le précédent se verrouille — un seul
+-- match "en cours de finalisation" à la fois. Appliqué en base (triggers
+-- + vérification dans vote_mvp), pas seulement dans l'interface, pour
+-- rester valable même via un appel direct à l'API publique.
+create or replace function match_datetime(p_match_date date, p_match_time text)
+returns timestamptz
+language sql
+immutable
+as $$
+  select (p_match_date::text || ' ' || coalesce(p_match_time, '23:59') || ':00')::timestamp at time zone 'Europe/Paris';
+$$;
+
+create or replace function is_editable_match(p_match_id uuid)
+returns boolean
+language plpgsql
+stable
+set search_path = public
+as $$
+declare
+  v_target_dt timestamptz;
+begin
+  select match_datetime(match_date, match_time) into v_target_dt
+  from matches where id = p_match_id;
+
+  if v_target_dt is null then
+    return true;
+  end if;
+
+  return not exists (
+    select 1 from matches m
+    where m.id <> p_match_id
+      and match_datetime(m.match_date, m.match_time) > v_target_dt
+      and match_datetime(m.match_date, m.match_time) <= now()
+  );
+end;
+$$;
+
+create or replace function enforce_match_lock_on_matches()
+returns trigger
+language plpgsql
+as $$
+begin
+  if (new.score_us is distinct from old.score_us or new.score_them is distinct from old.score_them)
+     and not is_editable_match(old.id) then
+    raise exception 'Ce match est verrouillé (un match plus récent a déjà eu lieu) : le score ne peut plus être modifié.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists matches_lock_score on matches;
+create trigger matches_lock_score
+  before update on matches
+  for each row execute function enforce_match_lock_on_matches();
+
+create or replace function enforce_match_lock_on_stat(table_label text, match_id uuid)
+returns void
+language plpgsql
+as $$
+begin
+  if not is_editable_match(match_id) then
+    raise exception 'Ce match est verrouillé (un match plus récent a déjà eu lieu) : impossible de modifier les %.', table_label;
+  end if;
+end;
+$$;
+
+create or replace function enforce_match_lock_on_goals()
+returns trigger
+language plpgsql
+as $$
+begin
+  perform enforce_match_lock_on_stat('buteurs', coalesce(new.match_id, old.match_id));
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists goals_lock on goals;
+create trigger goals_lock
+  before insert or update or delete on goals
+  for each row execute function enforce_match_lock_on_goals();
+
+create or replace function enforce_match_lock_on_assists()
+returns trigger
+language plpgsql
+as $$
+begin
+  perform enforce_match_lock_on_stat('passes décisives', coalesce(new.match_id, old.match_id));
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists assists_lock on assists;
+create trigger assists_lock
+  before insert or update or delete on assists
+  for each row execute function enforce_match_lock_on_assists();
+
+-- Ces fonctions n'ont pas SECURITY DEFINER : un appel de anon (via
+-- vote_mvp, ou via une écriture sur matches/goals/assists qui déclenche
+-- un trigger) s'exécute avec les droits de anon jusqu'au bout de la
+-- chaîne d'appels, donc anon a besoin d'EXECUTE sur chaque fonction
+-- imbriquée, pas seulement sur le point d'entrée.
+grant execute on function match_datetime(date, text) to anon, authenticated;
+grant execute on function is_editable_match(uuid) to anon, authenticated;
+grant execute on function enforce_match_lock_on_stat(text, uuid) to anon, authenticated;
 
 -- ───────────────────────── Row Level Security ──────────────────────
 -- Pas d'authentification (accès via simple lien) : lecture ET écriture

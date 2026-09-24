@@ -73,14 +73,29 @@ const db = (() => {
       return upcomingOnly ? data.filter((m) => !this.isPastMatch(m)) : data;
     },
 
+    matchDateTime(match) {
+      const time = match.match_time || "23:59";
+      return new Date(`${match.match_date}T${time}:00`);
+    },
+
     // Un match est "passé" (éligible aux résultats/MVP, plus proposé aux
     // dispos) une fois sa date+heure dépassée — pas juste sa date, sinon un
     // match du jour reste "à venir" jusqu'au lendemain même joué le matin.
     // Sans heure connue, on retombe sur la fin de journée (comportement
     // précédent : passé seulement le jour suivant).
     isPastMatch(match, now = new Date()) {
-      const time = match.match_time || "23:59";
-      return new Date(`${match.match_date}T${time}:00`) <= now;
+      return this.matchDateTime(match) <= now;
+    },
+
+    // Un match reste modifiable (score, buteurs, passes décisives, votes
+    // MVP) tant qu'aucun match plus récent n'a lui-même déjà eu lieu —
+    // miroir de is_editable_match() côté base, qui fait respecter la même
+    // règle sur les écritures directes. `pastMatches` suffit en entrée :
+    // un match encore à venir ne peut jamais faire verrouiller un match
+    // plus ancien puisqu'il n'est pas encore "passé" lui-même.
+    isEditableMatch(match, pastMatches) {
+      const targetDt = this.matchDateTime(match);
+      return !pastMatches.some((m) => m.id !== match.id && this.matchDateTime(m) > targetDt);
     },
 
     async addMatch({ match_date, match_time, competition, opponent, home_away, venue, drop_at, capacity }) {

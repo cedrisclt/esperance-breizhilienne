@@ -136,6 +136,7 @@ function renderMatches() {
     const assistsByPlayer = assistsByMatch[m.id] || {};
     const myVote = votes.find((v) => v.voter_id === playerId);
     const iPlayed = participants.some((p) => p.id === playerId);
+    const editable = db.isEditableMatch(m, pastMatches);
 
     const tally = {};
     for (const v of votes) tally[v.voted_for_id] = (tally[v.voted_for_id] || 0) + 1;
@@ -159,7 +160,9 @@ function renderMatches() {
       continue;
     }
 
-    if (!iPlayed) {
+    if (!editable) {
+      card.innerHTML += '<p style="font-size:.85rem;color:var(--muted);margin:0 0 10px"><strong>🔒</strong> Vote verrouillé — un match plus récent a déjà eu lieu.</p>';
+    } else if (!iPlayed) {
       card.innerHTML += '<p style="font-size:.85rem;color:var(--muted);margin:0 0 10px">Tu n\'étais pas dans ce match, vote réservé aux participants.</p>';
     }
 
@@ -181,7 +184,7 @@ function renderMatches() {
       const row = document.createElement("button");
       row.type = "button";
       row.className = "mvp-option" + (myVote && myVote.voted_for_id === p.id ? " selected" : "");
-      row.disabled = !iPlayed;
+      row.disabled = !iPlayed || !editable;
       row.innerHTML = `
         <span class="mvp-player">
           <span class="mvp-player-name"><span class="mvp-crown">${isLeader ? "👑" : ""}</span>${escapeHtml(p.name)}</span>

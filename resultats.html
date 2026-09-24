@@ -64,6 +64,7 @@ const MIN_MVP_VOTES = 3; // en dessous, un vote isolé ne suffit pas à désigne
 
 let players = [];
 let playersById = {};
+let pastMatches = [];
 
 async function init() {
   if (!db.isConfigured()) {
@@ -74,14 +75,14 @@ async function init() {
   playersById = Object.fromEntries(players.map((p) => [p.id, p]));
 
   const allMatches = await db.listMatches();
-  const pastMatches = allMatches
+  pastMatches = allMatches
     .filter((m) => db.isPastMatch(m))
     .sort((a, b) => (a.match_date < b.match_date ? 1 : -1));
 
-  await renderMatches(pastMatches);
+  await renderMatches();
 }
 
-async function renderMatches(pastMatches) {
+async function renderMatches() {
   const list = document.getElementById("matchList");
   list.innerHTML = "";
 
@@ -109,6 +110,7 @@ async function buildMatchCard(m) {
 
   const goalsByPlayer = Object.fromEntries(goals.map((g) => [g.player_id, g.count]));
   const assistsByPlayer = Object.fromEntries(assists.map((a) => [a.player_id, a.count]));
+  const editable = db.isEditableMatch(m, pastMatches);
 
   const tally = {};
   for (const v of votes) tally[v.voted_for_id] = (tally[v.voted_for_id] || 0) + 1;
@@ -134,17 +136,28 @@ async function buildMatchCard(m) {
           ? "— (personne n'a encore voté)"
           : `— (${votes.length}/${MIN_MVP_VOTES} votes, pas encore assez pour désigner un MVP)`
       }</div>
+      ${editable ? "" : '<div style="margin-top:8px"><strong>🔒</strong> Match verrouillé — un match plus récent a déjà eu lieu, le score/buteurs/passes/MVP ne sont plus modifiables.</div>'}
     </div>
 
     <div class="field">
       <label>Score final</label>
-      <div class="score-row">
+      ${
+        editable
+          ? `<div class="score-row">
         <span class="score-team">Espérance Breizhilienne</span>
         <input type="number" min="0" class="score-input" data-role="scoreUs" aria-label="Score Espérance Breizhilienne" value="${m.score_us ?? ""}">
         <span>—</span>
         <input type="number" min="0" class="score-input" data-role="scoreThem" aria-label="Score ${escapeHtml(m.opponent)}" value="${m.score_them ?? ""}">
         <span class="score-team">${escapeHtml(m.opponent)}</span>
-      </div>
+      </div>`
+          : `<div class="score-row">
+        <span class="score-team">Espérance Breizhilienne</span>
+        <strong>${m.score_us ?? "—"}</strong>
+        <span>—</span>
+        <strong>${m.score_them ?? "—"}</strong>
+        <span class="score-team">${escapeHtml(m.opponent)}</span>
+      </div>`
+      }
     </div>
 
     <div class="field">
@@ -156,17 +169,19 @@ async function buildMatchCard(m) {
     </div>
   `;
 
-  async function saveScore() {
-    const scoreUs = card.querySelector('[data-role="scoreUs"]').value;
-    const scoreThem = card.querySelector('[data-role="scoreThem"]').value;
-    await db.updateMatch(m.id, {
-      score_us: scoreUs === "" ? null : parseInt(scoreUs, 10),
-      score_them: scoreThem === "" ? null : parseInt(scoreThem, 10),
-    });
-    showToast("Score enregistré.");
+  if (editable) {
+    async function saveScore() {
+      const scoreUs = card.querySelector('[data-role="scoreUs"]').value;
+      const scoreThem = card.querySelector('[data-role="scoreThem"]').value;
+      await db.updateMatch(m.id, {
+        score_us: scoreUs === "" ? null : parseInt(scoreUs, 10),
+        score_them: scoreThem === "" ? null : parseInt(scoreThem, 10),
+      });
+      showToast("Score enregistré.");
+    }
+    card.querySelector('[data-role="scoreUs"]').addEventListener("change", saveScore);
+    card.querySelector('[data-role="scoreThem"]').addEventListener("change", saveScore);
   }
-  card.querySelector('[data-role="scoreUs"]').addEventListener("change", saveScore);
-  card.querySelector('[data-role="scoreThem"]').addEventListener("change", saveScore);
 
   const teamEditor = card.querySelector(".team-editor");
   card.querySelector('[data-action="toggleTeam"]').addEventListener("click", (e) => {
@@ -216,6 +231,7 @@ async function buildMatchCard(m) {
         participants,
         statsByPlayer: goalsByPlayer,
         onChange: (playerId, count) => db.setGoals({ matchId: m.id, playerId, count }),
+        readOnly: !editable,
       })
     );
     card.appendChild(
@@ -226,6 +242,7 @@ async function buildMatchCard(m) {
         participants,
         statsByPlayer: assistsByPlayer,
         onChange: (playerId, count) => db.setAssists({ matchId: m.id, playerId, count }),
+        readOnly: !editable,
       })
     );
   } else {
@@ -242,14 +259,16 @@ async function buildMatchCard(m) {
 // ayant un compteur > 0, avec +/-/retirer, et un bouton pour en ajouter un
 // depuis les participants restants. Partagée entre les deux stats, qui ne
 // diffèrent que par leurs libellés et où l'écriture atterrit (buts/passes).
-function buildStatSection({ label, emptyLabel, addLabel, participants, statsByPlayer, onChange }) {
+function buildStatSection({ label, emptyLabel, addLabel, participants, statsByPlayer, onChange, readOnly = false }) {
   const field = document.createElement("div");
   field.className = "field";
   field.innerHTML = `
     <label>${label}</label>
     <div class="scorers-list"></div>
+    ${readOnly ? "" : `
     <div class="add-scorer-form" style="display:none"></div>
     <button class="btn secondary small" data-action="add" type="button" style="margin-top:6px">${addLabel}</button>
+    `}
   `;
 
   const list = field.querySelector(".scorers-list");
@@ -282,6 +301,14 @@ function buildStatSection({ label, emptyLabel, addLabel, participants, statsByPl
     for (const p of current) {
       const row = document.createElement("div");
       row.className = "scorer-row";
+      if (readOnly) {
+        row.innerHTML = `
+          <span class="scorer-name">${escapeHtml(p.name)}</span>
+          <span class="scorer-count">${statsByPlayer[p.id]}</span>
+        `;
+        list.appendChild(row);
+        continue;
+      }
       row.innerHTML = `
         <span class="scorer-name">${escapeHtml(p.name)}</span>
         <span class="scorer-controls">
@@ -296,10 +323,10 @@ function buildStatSection({ label, emptyLabel, addLabel, participants, statsByPl
       row.querySelector('[data-action="remove"]').addEventListener("click", () => update(p.id, 0));
       list.appendChild(row);
     }
-    addBtn.style.display = remainingPlayers().length === 0 ? "none" : "inline-flex";
+    if (!readOnly) addBtn.style.display = remainingPlayers().length === 0 ? "none" : "inline-flex";
   }
 
-  addBtn.addEventListener("click", () => {
+  if (!readOnly) addBtn.addEventListener("click", () => {
     const remaining = remainingPlayers();
     if (remaining.length === 0) return;
     addForm.innerHTML = `
