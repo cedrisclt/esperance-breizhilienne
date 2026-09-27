@@ -139,14 +139,16 @@ async function initDropWidget() {
       `;
       startCountdown();
 
-      // Un joueur déjà marqué dispo avant l'ouverture (prioritaire, ou
-      // ajouté à la main) peut se désister par avance — la réclamation
-      // d'une place reste bloquée tant que le drop n'est pas ouvert.
+      // Réclamer une place reste bloqué tant que le drop n'est pas ouvert,
+      // mais se désister ou prévenir par avance qu'on ne sera pas là doit
+      // rester possible à tout moment.
       const earlyPlayerId = Identity.getPlayerId();
       if (earlyPlayerId) {
         const availability = await db.getAvailabilityForMatch(next.id);
         if (gen !== dropWidgetGen) return;
         const mine = availability.find((a) => a.player_id === earlyPlayerId);
+        const earlyName = Identity.getPlayer()?.name || "?";
+
         if (mine && mine.status === "disponible") {
           const btn = document.createElement("button");
           btn.type = "button";
@@ -154,9 +156,38 @@ async function initDropWidget() {
           btn.style.cssText = "width:100%;margin-top:10px";
           btn.textContent = "✅ Tu es dedans — Se désister";
           btn.addEventListener("click", async (e) => {
-            const ok = await confirmAction(e.target, `Te désister en tant que ${Identity.getPlayer()?.name || "?"} ?`);
+            const ok = await confirmAction(e.target, `Te désister en tant que ${earlyName} ?`);
             if (!ok) return;
             await db.withdraw({ matchId: next.id, playerId: earlyPlayerId });
+            initDropWidget();
+          });
+          widget.appendChild(btn);
+        } else if (mine && mine.status === "indisponible") {
+          const note = document.createElement("div");
+          note.style.cssText = "margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap";
+          note.innerHTML = `<span style="font-size:.85rem;color:var(--muted)">❌ Tu as indiqué ne pas être disponible.</span>`;
+          const undoBtn = document.createElement("button");
+          undoBtn.type = "button";
+          undoBtn.className = "btn secondary small";
+          undoBtn.textContent = "Changer d'avis";
+          undoBtn.addEventListener("click", async (e) => {
+            const ok = await confirmAction(e.target, `Retirer ta réponse en tant que ${earlyName} ?`);
+            if (!ok) return;
+            await db.clearAvailability({ matchId: next.id, playerId: earlyPlayerId });
+            initDropWidget();
+          });
+          note.appendChild(undoBtn);
+          widget.appendChild(note);
+        } else {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn secondary";
+          btn.style.cssText = "width:100%;margin-top:10px";
+          btn.textContent = "❌ Je ne suis pas disponible";
+          btn.addEventListener("click", async (e) => {
+            const ok = await confirmAction(e.target, `Indiquer que tu n'es pas disponible en tant que ${earlyName} ?`);
+            if (!ok) return;
+            await db.setAvailability({ matchId: next.id, playerId: earlyPlayerId, status: "indisponible" });
             initDropWidget();
           });
           widget.appendChild(btn);

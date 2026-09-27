@@ -152,9 +152,9 @@ function renderMatches() {
           <span class="countdown" data-drop-at="${m.drop_at}"></span>
         </div>
       `;
-      // Un joueur déjà marqué dispo avant l'ouverture (prioritaire, ou
-      // ajouté à la main) peut se désister par avance — la réclamation
-      // d'une place, elle, reste bloquée tant que le drop n'est pas ouvert.
+      // Réclamer une place reste bloqué tant que le drop n'est pas ouvert
+      // (c'est tout l'intérêt du drop), mais se désister ou prévenir par
+      // avance qu'on ne sera pas là doit rester possible à tout moment.
       if (mine && mine.status === "disponible") {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -169,6 +169,50 @@ function renderMatches() {
           renderMatches();
         });
         zone.appendChild(btn);
+      } else if (mine && mine.status === "indisponible") {
+        const note = document.createElement("div");
+        note.style.cssText = "margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap";
+        note.innerHTML = `<span style="font-size:.85rem;color:var(--muted)">❌ Tu as indiqué ne pas être disponible.</span>`;
+        const undoBtn = document.createElement("button");
+        undoBtn.type = "button";
+        undoBtn.className = "btn secondary small";
+        undoBtn.textContent = "Changer d'avis";
+        undoBtn.addEventListener("click", async (e) => {
+          const ok = await confirmAction(e.target, `Retirer ta réponse en tant que ${nameOf(playerId)} ?`);
+          if (!ok) return;
+          await db.clearAvailability({ matchId: m.id, playerId });
+          await loadAvailability();
+          renderMatches();
+        });
+        note.appendChild(undoBtn);
+        zone.appendChild(note);
+      } else {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn secondary";
+        btn.style.cssText = "width:100%;margin-top:10px";
+        btn.textContent = "❌ Je ne suis pas disponible";
+        btn.addEventListener("click", async (e) => {
+          const ok = await confirmAction(e.target, `Indiquer que tu n'es pas disponible en tant que ${nameOf(playerId)} ?`);
+          if (!ok) return;
+          await db.setAvailability({ matchId: m.id, playerId, status: "indisponible" });
+          await loadAvailability();
+          renderMatches();
+        });
+        zone.appendChild(btn);
+      }
+
+      const declined = availList
+        .filter((a) => a.status === "indisponible")
+        .sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+      if (declined.length > 0) {
+        const declinedLine = document.createElement("div");
+        declinedLine.className = "roster-line";
+        declinedLine.style.marginTop = "10px";
+        declinedLine.innerHTML = `<strong>Déjà indisponible${declined.length > 1 ? "s" : ""} :</strong> ${declined
+          .map((a) => escapeHtml(nameOf(a.player_id)))
+          .join(", ")}`;
+        zone.appendChild(declinedLine);
       }
     } else {
       const capLine = document.createElement("div");

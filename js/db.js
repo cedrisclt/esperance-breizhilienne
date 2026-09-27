@@ -191,6 +191,18 @@ const db = (() => {
       return data;
     },
 
+    // Efface une réponse ("indisponible" déclaré par avance, typiquement) pour
+    // repartir d'une réponse neutre plutôt que de forcer un statut.
+    async clearAvailability({ matchId, playerId }) {
+      assertConfigured();
+      const { error } = await client
+        .from("availability")
+        .delete()
+        .eq("match_id", matchId)
+        .eq("player_id", playerId);
+      if (error) throw error;
+    },
+
     async listAllAvailability() {
       assertConfigured();
       const { data, error } = await client.from("availability").select("*");
