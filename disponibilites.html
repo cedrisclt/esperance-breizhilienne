@@ -136,10 +136,11 @@ function renderMatches() {
       <div class="match-teams" style="margin-bottom:10px">
         <span class="us">vs ${escapeHtml(m.opponent)}</span>
       </div>
-      <div class="match-details" style="margin-bottom:14px">
+      <div class="match-details" style="margin-bottom:0">
         <div><strong>Date</strong> ${formatDate(m.match_date)} ${escapeHtml(m.match_time || "")}</div>
         <div><strong>Lieu</strong> ${escapeHtml(m.venue || "")}</div>
       </div>
+      <div class="avail-counter">👥 ${confirmed.length}/${m.capacity} joueurs disponibles</div>
       <div class="drop-zone"></div>
     `;
 
@@ -215,11 +216,6 @@ function renderMatches() {
         zone.appendChild(declinedLine);
       }
     } else {
-      const capLine = document.createElement("div");
-      capLine.style.marginBottom = "10px";
-      capLine.innerHTML = `<strong>${confirmed.length} / ${m.capacity}</strong> places prises`;
-      zone.appendChild(capLine);
-
       const btn = document.createElement("button");
       btn.className = "btn";
       btn.style.width = "100%";

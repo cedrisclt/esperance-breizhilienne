@@ -129,9 +129,15 @@ async function initDropWidget() {
     const opponentLine = `vs ${escapeHtml(next.opponent)} — ${formatDate(next.match_date)}`;
 
     const isOpen = !next.drop_at || new Date(next.drop_at) <= new Date();
+    const availability = await db.getAvailabilityForMatch(next.id);
+    if (gen !== dropWidgetGen) return;
+    const confirmedCount = availability.filter((a) => a.status === "disponible").length;
+    const counterLine = `<div class="avail-counter">👥 ${confirmedCount}/${next.capacity} joueurs disponibles</div>`;
+
     if (!isOpen) {
       widget.innerHTML = `
         <p style="margin:0 0 12px">${opponentLine}</p>
+        ${counterLine}
         <div class="drop-locked">
           🔒 Ouverture le ${formatDateTime(next.drop_at)}
           <span class="countdown" data-drop-at="${next.drop_at}"></span>
@@ -144,8 +150,6 @@ async function initDropWidget() {
       // rester possible à tout moment.
       const earlyPlayerId = Identity.getPlayerId();
       if (earlyPlayerId) {
-        const availability = await db.getAvailabilityForMatch(next.id);
-        if (gen !== dropWidgetGen) return;
         const mine = availability.find((a) => a.player_id === earlyPlayerId);
         const earlyName = Identity.getPlayer()?.name || "?";
 
@@ -196,7 +200,7 @@ async function initDropWidget() {
       return;
     }
 
-    widget.innerHTML = `<p style="margin:0 0 12px">${opponentLine}</p>`;
+    widget.innerHTML = `<p style="margin:0 0 12px">${opponentLine}</p>${counterLine}`;
 
     const playerId = Identity.getPlayerId();
     if (!playerId) {
@@ -209,10 +213,7 @@ async function initDropWidget() {
       return;
     }
 
-    const availability = await db.getAvailabilityForMatch(next.id);
-    if (gen !== dropWidgetGen) return;
     const mine = availability.find((a) => a.player_id === playerId);
-    const confirmedCount = availability.filter((a) => a.status === "disponible").length;
 
     const btn = document.createElement("button");
     btn.type = "button";
