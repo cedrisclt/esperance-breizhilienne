@@ -126,6 +126,8 @@ function renderMatches() {
     const waitlist = availList
       .filter((a) => a.status === "liste_attente")
       .sort((a, b) => new Date(a.updated_at) - new Date(b.updated_at));
+    const declinedIds = new Set(availList.filter((a) => a.status === "indisponible").map((a) => a.player_id));
+    const availableCount = players.filter((p) => !declinedIds.has(p.id)).length;
 
     const isOpen = !m.drop_at || new Date(m.drop_at) <= now;
 
@@ -140,7 +142,7 @@ function renderMatches() {
         <div><strong>Date</strong> ${formatDate(m.match_date)} ${escapeHtml(m.match_time || "")}</div>
         <div><strong>Lieu</strong> ${escapeHtml(m.venue || "")}</div>
       </div>
-      <div class="avail-counter">👥 ${confirmed.length}/${m.capacity} joueurs disponibles</div>
+      <div class="avail-counter">👥 ${availableCount}/${players.length} joueurs disponibles</div>
       <div class="drop-zone"></div>
     `;
 
@@ -216,6 +218,11 @@ function renderMatches() {
         zone.appendChild(declinedLine);
       }
     } else {
+      const capLine = document.createElement("div");
+      capLine.style.marginBottom = "10px";
+      capLine.innerHTML = `<strong>${confirmed.length} / ${m.capacity}</strong> places prises`;
+      zone.appendChild(capLine);
+
       const btn = document.createElement("button");
       btn.className = "btn";
       btn.style.width = "100%";

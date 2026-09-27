@@ -119,8 +119,11 @@ async function init() {
 }
 
 async function renderMatches() {
-  const matches = await db.listMatches({ upcomingOnly: true });
-  const allAvailability = await db.listAllAvailability();
+  const [matches, allAvailability, players] = await Promise.all([
+    db.listMatches({ upcomingOnly: true }),
+    db.listAllAvailability(),
+    db.listPlayers(),
+  ]);
   const list = document.getElementById("matchList");
   list.innerHTML = "";
   if (matches.length === 0) {
@@ -128,9 +131,12 @@ async function renderMatches() {
     return;
   }
   for (const m of matches) {
-    const confirmedCount = allAvailability.filter(
-      (a) => a.match_id === m.id && a.status === "disponible"
-    ).length;
+    const declinedIds = new Set(
+      allAvailability
+        .filter((a) => a.match_id === m.id && a.status === "indisponible")
+        .map((a) => a.player_id)
+    );
+    const availableCount = players.filter((p) => !declinedIds.has(p.id)).length;
     const row = document.createElement("div");
     row.className = "player-row";
     row.style.flexWrap = "wrap";
@@ -143,7 +149,7 @@ async function renderMatches() {
           ${escapeHtml(m.competition || "")} · ${escapeHtml(m.venue || "")}
         </span>
         <span style="display:block;font-size:.78rem;color:var(--pink);font-weight:600">
-          ${dropText} · 👥 ${confirmedCount}/${m.capacity} joueurs disponibles
+          ${dropText} · ${m.capacity} places · 👥 ${availableCount}/${players.length} joueurs disponibles
         </span>
       </span>
       <span style="display:flex;gap:6px">

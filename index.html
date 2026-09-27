@@ -129,10 +129,15 @@ async function initDropWidget() {
     const opponentLine = `vs ${escapeHtml(next.opponent)} — ${formatDate(next.match_date)}`;
 
     const isOpen = !next.drop_at || new Date(next.drop_at) <= new Date();
-    const availability = await db.getAvailabilityForMatch(next.id);
+    const [availability, players] = await Promise.all([
+      db.getAvailabilityForMatch(next.id),
+      db.listPlayers(),
+    ]);
     if (gen !== dropWidgetGen) return;
     const confirmedCount = availability.filter((a) => a.status === "disponible").length;
-    const counterLine = `<div class="avail-counter">👥 ${confirmedCount}/${next.capacity} joueurs disponibles</div>`;
+    const declinedIds = new Set(availability.filter((a) => a.status === "indisponible").map((a) => a.player_id));
+    const availableCount = players.filter((p) => !declinedIds.has(p.id)).length;
+    const counterLine = `<div class="avail-counter">👥 ${availableCount}/${players.length} joueurs disponibles</div>`;
 
     if (!isOpen) {
       widget.innerHTML = `
