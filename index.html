@@ -252,7 +252,12 @@ async function initDropWidget() {
       btn.addEventListener("click", async (e) => {
         const ok = await confirmAction(e.target, `T'inscrire au match en tant que ${Identity.getPlayer()?.name || "?"} ?`);
         if (!ok) return;
-        await db.claimSpot({ matchId: next.id, playerId });
+        try {
+          await db.claimSpot({ matchId: next.id, playerId });
+        } catch (err) {
+          // Ex. drop reporté entre-temps : la base refuse l'inscription.
+          showToast(err.message);
+        }
         initDropWidget();
       });
     }

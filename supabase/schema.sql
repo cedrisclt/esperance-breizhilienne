@@ -69,7 +69,7 @@ begin
 end $$;
 
 -- "Drop" des dispos : les dispos ne sont ouvertes qu'à partir de drop_at
--- (ex. mercredi 18h pour un match donné), et limitées à `capacity` places
+-- (ex. samedi 18h pour un match donné), et limitées à `capacity` places
 -- (9 par défaut : 7 titulaires + 2 remplaçants). drop_at NULL = ouvert
 -- immédiatement (utile pour les matchs déjà synchronisés par le scraper).
 alter table matches add column if not exists drop_at timestamptz;
@@ -161,14 +161,23 @@ set search_path = public
 as $$
 declare
   v_capacity integer;
+  v_drop_at timestamptz;
   v_confirmed_count integer;
   v_status text;
 begin
   -- Verrouille la ligne du match : les appels concurrents sur CE match
   -- s'exécutent l'un après l'autre ; les autres matchs ne sont pas bloqués.
-  select capacity into v_capacity from matches where id = p_match_id for update;
+  select capacity, drop_at into v_capacity, v_drop_at from matches where id = p_match_id for update;
   if not found then
     raise exception 'Match % introuvable', p_match_id;
+  end if;
+
+  -- Drop pas encore ouvert : refusé ici et pas seulement masqué dans
+  -- l'interface — un onglet resté ouvert avant un report du drop
+  -- afficherait sinon encore le bouton d'inscription.
+  if v_drop_at is not null and v_drop_at > now() then
+    raise exception 'Inscriptions pas encore ouvertes : ouverture le %.',
+      to_char(v_drop_at at time zone 'Europe/Paris', 'DD/MM "à" HH24"h"MI');
   end if;
 
   select count(*) into v_confirmed_count

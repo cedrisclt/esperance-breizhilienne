@@ -79,8 +79,10 @@ async function init() {
   renderMatches();
 
   // Rafraîchit périodiquement : fait apparaître le bouton au moment du
-  // drop sans recharger la page, et reflète les dispos des autres joueurs.
+  // drop sans recharger la page, reflète les dispos des autres joueurs et
+  // un drop avancé/reporté entre-temps depuis l'onglet Matchs.
   setInterval(async () => {
+    matches = await db.listMatches({ upcomingOnly: true });
     await loadAvailability();
     renderMatches();
   }, 20000);
@@ -256,7 +258,13 @@ function renderMatches() {
         btn.addEventListener("click", async (e) => {
           const ok = await confirmAction(e.target, `T'inscrire au match en tant que ${nameOf(playerId)} ?`);
           if (!ok) return;
-          await db.claimSpot({ matchId: m.id, playerId });
+          try {
+            await db.claimSpot({ matchId: m.id, playerId });
+          } catch (err) {
+            // Ex. drop reporté entre-temps : la base refuse l'inscription.
+            showToast(err.message);
+            matches = await db.listMatches({ upcomingOnly: true });
+          }
           await loadAvailability();
           renderMatches();
         });

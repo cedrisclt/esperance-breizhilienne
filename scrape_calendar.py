@@ -23,7 +23,7 @@ HERE = Path(__file__).resolve().parent
 INDEX_HTML = HERE / "index.html"
 CONFIG_JS = HERE / "js" / "config.js"
 PARIS_TZ = zoneinfo.ZoneInfo("Europe/Paris")
-DROP_HOUR = 18  # convention de l'équipe : drop à 18h (mercredi de la semaine avant le match)
+DROP_HOUR = 18  # convention de l'équipe : drop à 18h (samedi de la semaine avant le match)
 
 # Le site source mélange l'heure dans le champ lieu, ex.
 # "La Courneuve – n°1B - 20h – 93 La Courneuve". On extrait l'heure et on
@@ -44,11 +44,12 @@ def match_datetime(match):
 
 
 def compute_drop_at(match_date):
-    """Mercredi 18h (heure de Paris) de la semaine précédant le match, en
-    ISO UTC pour Supabase. weekday() = 0 pour lundi ; le mercredi de la
-    semaine d'avant tombe donc (weekday + 5) jours avant le match, quel
-    que soit le jour de la semaine du match lui-même."""
-    days_back = match_date.weekday() + 5
+    """Samedi 18h (heure de Paris) de la semaine précédant le match, en
+    ISO UTC pour Supabase. weekday() = 0 pour lundi ; le samedi de la
+    semaine d'avant tombe donc (weekday + 2) jours avant le match, quel
+    que soit le jour de la semaine du match lui-même (match du lundi :
+    le samedi juste avant)."""
+    days_back = match_date.weekday() + 2
     drop_date = match_date - datetime.timedelta(days=days_back)
     local_dt = datetime.datetime.combine(drop_date, datetime.time(DROP_HOUR, 0), tzinfo=PARIS_TZ)
     return local_dt.astimezone(datetime.timezone.utc).isoformat()
@@ -251,7 +252,7 @@ def sync_matches_to_supabase(matches, config):
 
 
 def set_default_drop_at(key, match_date, config):
-    """Programme le drop au mercredi 18h de la semaine précédente pour un
+    """Programme le drop au samedi 18h de la semaine précédente pour un
     match qui vient d'apparaître. Filtré sur drop_at=is.null : ne touche
     jamais un match déjà connu, qu'il ait été réglé automatiquement avant
     ou modifié à la main dans l'onglet Matchs."""
