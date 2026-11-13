@@ -7,6 +7,7 @@ network/parsing failure so the caller can detect problems; leaves
 index.html untouched in that case.
 """
 import datetime
+import json
 import re
 import sys
 import zoneinfo
@@ -17,6 +18,9 @@ from bs4 import BeautifulSoup
 
 TEAM_ID = 15065
 CALENDAR_URL = f"https://www.footfsgtidf.org/calendriers.php?e={TEAM_ID}"
+ANNUAIRE_URL = f"https://www.footfsgtidf.org/annuaire.php?e={TEAM_ID}"
+GROUP_URL = "https://www.footfsgtidf.org/calendriers.php?g={group_id}"
+CHAMPIONNAT_JSON = Path(__file__).resolve().parent / "data" / "championnat.json"
 TEAM_NAME = "ESPERANCE BREIZHILIENNE"
 TEAM_NAME_DISPLAY = "Espérance Breizhilienne"
 HERE = Path(__file__).resolve().parent
@@ -280,6 +284,116 @@ def set_default_drop_at(key, match_date, config):
         print(f"Avertissement: échec du réglage du drop pour {opponent} ({exc}).", file=sys.stderr)
 
 
+SCORE_RE = re.compile(r"^(\d+)\s*(P?)\s*-\s*(\d+)\s*(P?)$")
+STANDINGS_COLUMNS = ["rank", "team", "pts", "played", "won", "drawn", "lost",
+                     "forfeits", "penalties", "gf", "ga", "diff"]
+
+
+def clean_team(name):
+    """Le site aligne certains noms avec des espaces ("LES BAGAUDES      C")."""
+    return pretty_name(" ".join(name.split()))
+
+
+def fetch_group_id():
+    """Le groupe de championnat change à chaque saison : on le retrouve via
+    le lien "calendrier championnat" de la fiche de l'équipe."""
+    resp = requests.get(ANNUAIRE_URL, timeout=20)
+    resp.raise_for_status()
+    resp.encoding = "cp1252"
+    soup = BeautifulSoup(resp.text, "html.parser")
+    group_name = None
+    for a in soup.find_all("a", href=True):
+        m = re.search(r"calendriers\.php\?g=(\d+)", a["href"])
+        if m and "championnat" in a.get_text(" ", strip=True).lower():
+            for line in soup.get_text("\n", strip=True).splitlines():
+                if line.startswith("groupe :"):
+                    group_name = line.split(":", 1)[1].strip()
+                    break
+            return int(m.group(1)), group_name
+    return None, None
+
+
+def parse_championnat_row(cells):
+    date_text = cells[1]
+    d = re.match(r"(\d{2})/(\d{2})/(\d{4})", date_text)
+    if not d:
+        return None
+    day, month, year = d.groups()
+    match = {
+        "date": f"{year}-{month}-{day}",
+        "home": clean_team(cells[2]),
+        "away": clean_team(cells[4]),
+        "status": "scheduled",
+        "time": None,
+        "venue": "",
+    }
+    last = cells[5]
+    score = SCORE_RE.match(last)
+    if score:
+        match.update(status="played", score_home=int(score[1]), score_away=int(score[3]),
+                     penalty=bool(score[2] or score[4]))
+    elif last.lower().startswith(("décalé", "decale", "reporté", "report")):
+        match.update(status="postponed", note=last)
+    else:
+        venue, time_str = split_venue_time(last)
+        match.update(venue=venue, time=time_str)
+    return match
+
+
+def fetch_championnat():
+    """Résultats par journée + classement du groupe de l'équipe. None si le
+    groupe est introuvable."""
+    group_id, group_name = fetch_group_id()
+    if not group_id:
+        return None
+    resp = requests.get(GROUP_URL.format(group_id=group_id), timeout=20)
+    resp.raise_for_status()
+    resp.encoding = "cp1252"
+    soup = BeautifulSoup(resp.text, "html.parser")
+
+    rounds, standings, current = [], [], None
+    for table in soup.find_all("table"):
+        table_id = table.get("id")
+        if table_id == "AutoNumber2":
+            title = table.get_text(" ", strip=True)
+            number = re.search(r"N°\s*(\d+)", title)
+            current = {"name": title, "number": int(number[1]) if number else None, "matches": []}
+            rounds.append(current)
+        elif table_id == "AutoNumber1":
+            for row in table.find_all("tr"):
+                cells = [c.get_text(" ", strip=True) for c in row.find_all("td")]
+                if len(cells) >= 6 and re.match(r"\d{2}/\d{2}/\d{4}", cells[1]):
+                    m = parse_championnat_row(cells)
+                    if m and current is not None:
+                        current["matches"].append(m)
+                elif len(cells) >= len(STANDINGS_COLUMNS) and cells[0].isdigit():
+                    values = cells[:len(STANDINGS_COLUMNS)]
+                    entry = dict(zip(STANDINGS_COLUMNS, values))
+                    for key in STANDINGS_COLUMNS:
+                        if key == "team":
+                            entry[key] = clean_team(entry[key])
+                        else:
+                            entry[key] = int(entry[key].replace("+", "") or 0)
+                    standings.append(entry)
+    if not standings:
+        return None
+    return {"group": group_name, "group_id": group_id, "standings": standings, "rounds": rounds}
+
+
+def write_championnat_json(data):
+    """N'écrit que si le contenu change : le fichier est commité par
+    update_and_push.sh et ne doit pas bouger à chaque passage du scraper."""
+    previous = None
+    if CHAMPIONNAT_JSON.exists():
+        previous = json.loads(CHAMPIONNAT_JSON.read_text(encoding="utf-8"))
+    if previous and {k: v for k, v in previous.items() if k != "updated_at"} == data:
+        return False
+    out = dict(data, updated_at=datetime.datetime.now(PARIS_TZ).isoformat(timespec="minutes"))
+    CHAMPIONNAT_JSON.parent.mkdir(exist_ok=True)
+    CHAMPIONNAT_JSON.write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    return True
+
+
 def main():
     matches = fetch_matches()
     if not matches:
@@ -298,6 +412,16 @@ def main():
             print(f"Avertissement: échec de synchro Supabase ({exc}).", file=sys.stderr)
     else:
         print("Supabase non configuré (js/config.js) — synchro matchs ignorée.")
+
+    try:
+        championnat = fetch_championnat()
+        if championnat:
+            changed = write_championnat_json(championnat)
+            print(f"OK: championnat {'mis à jour' if changed else 'inchangé'} ({len(championnat['standings'])} équipes).")
+        else:
+            print("Avertissement: groupe de championnat introuvable.", file=sys.stderr)
+    except requests.RequestException as exc:
+        print(f"Avertissement: échec de la récupération du championnat ({exc}).", file=sys.stderr)
     return 0
 
 

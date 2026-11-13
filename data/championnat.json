@@ -1,0 +1,684 @@
+{
+ "group": "FOOT A 7 - LUNDI - Groupe E3",
+ "group_id": 7867,
+ "standings": [
+  {
+   "rank": 1,
+   "team": "RC SAMBA",
+   "pts": 6,
+   "played": 2,
+   "won": 2,
+   "drawn": 0,
+   "lost": 0,
+   "forfeits": 0,
+   "penalties": 0,
+   "gf": 15,
+   "ga": 6,
+   "diff": 9
+  },
+  {
+   "rank": 2,
+   "team": "WALLEBAY VILLA F.C",
+   "pts": 4,
+   "played": 2,
+   "won": 1,
+   "drawn": 0,
+   "lost": 1,
+   "forfeits": 0,
+   "penalties": 0,
+   "gf": 11,
+   "ga": 8,
+   "diff": 3
+  },
+  {
+   "rank": 3,
+   "team": "HIGH FIVE",
+   "pts": 4,
+   "played": 2,
+   "won": 1,
+   "drawn": 0,
+   "lost": 1,
+   "forfeits": 0,
+   "penalties": 0,
+   "gf": 7,
+   "ga": 5,
+   "diff": 2
+  },
+  {
+   "rank": 4,
+   "team": "FONTENAY FOOTBALL TEAM C",
+   "pts": 4,
+   "played": 2,
+   "won": 1,
+   "drawn": 0,
+   "lost": 1,
+   "forfeits": 0,
+   "penalties": 0,
+   "gf": 8,
+   "ga": 7,
+   "diff": 1
+  },
+  {
+   "rank": 5,
+   "team": "Espérance Breizhilienne",
+   "pts": 4,
+   "played": 2,
+   "won": 1,
+   "drawn": 0,
+   "lost": 1,
+   "forfeits": 0,
+   "penalties": 0,
+   "gf": 7,
+   "ga": 6,
+   "diff": 1
+  },
+  {
+   "rank": 6,
+   "team": "LES BAGAUDES C",
+   "pts": 4,
+   "played": 2,
+   "won": 1,
+   "drawn": 0,
+   "lost": 1,
+   "forfeits": 0,
+   "penalties": 0,
+   "gf": 5,
+   "ga": 6,
+   "diff": -1
+  },
+  {
+   "rank": 7,
+   "team": "P12",
+   "pts": 4,
+   "played": 2,
+   "won": 1,
+   "drawn": 0,
+   "lost": 1,
+   "forfeits": 0,
+   "penalties": 0,
+   "gf": 6,
+   "ga": 11,
+   "diff": -5
+  },
+  {
+   "rank": 8,
+   "team": "LES BARONS B",
+   "pts": 2,
+   "played": 2,
+   "won": 0,
+   "drawn": 0,
+   "lost": 2,
+   "forfeits": 0,
+   "penalties": 0,
+   "gf": 4,
+   "ga": 14,
+   "diff": -10
+  }
+ ],
+ "rounds": [
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°1",
+   "number": 1,
+   "matches": [
+    {
+     "date": "2026-10-19",
+     "home": "FONTENAY FOOTBALL TEAM C",
+     "away": "RC SAMBA",
+     "status": "played",
+     "time": null,
+     "venue": "",
+     "score_home": 4,
+     "score_away": 6,
+     "penalty": false
+    },
+    {
+     "date": "2026-10-19",
+     "home": "HIGH FIVE",
+     "away": "LES BAGAUDES C",
+     "status": "played",
+     "time": null,
+     "venue": "",
+     "score_home": 2,
+     "score_away": 4,
+     "penalty": false
+    },
+    {
+     "date": "2026-10-19",
+     "home": "P12",
+     "away": "Espérance Breizhilienne",
+     "status": "played",
+     "time": null,
+     "venue": "",
+     "score_home": 4,
+     "score_away": 2,
+     "penalty": false
+    },
+    {
+     "date": "2026-10-19",
+     "home": "WALLEBAY VILLA F.C",
+     "away": "LES BARONS B",
+     "status": "played",
+     "time": null,
+     "venue": "",
+     "score_home": 9,
+     "score_away": 3,
+     "penalty": false
+    }
+   ]
+  },
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°2",
+   "number": 2,
+   "matches": [
+    {
+     "date": "2026-11-02",
+     "home": "LES BAGAUDES C",
+     "away": "FONTENAY FOOTBALL TEAM C",
+     "status": "played",
+     "time": null,
+     "venue": "",
+     "score_home": 1,
+     "score_away": 4,
+     "penalty": false
+    },
+    {
+     "date": "2026-11-02",
+     "home": "RC SAMBA",
+     "away": "P12",
+     "status": "played",
+     "time": null,
+     "venue": "",
+     "score_home": 9,
+     "score_away": 2,
+     "penalty": false
+    },
+    {
+     "date": "2026-11-02",
+     "home": "LES BARONS B",
+     "away": "HIGH FIVE",
+     "status": "played",
+     "time": null,
+     "venue": "",
+     "score_home": 1,
+     "score_away": 5,
+     "penalty": false
+    },
+    {
+     "date": "2026-11-02",
+     "home": "Espérance Breizhilienne",
+     "away": "WALLEBAY VILLA F.C",
+     "status": "played",
+     "time": null,
+     "venue": "",
+     "score_home": 5,
+     "score_away": 2,
+     "penalty": false
+    }
+   ]
+  },
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°3",
+   "number": 3,
+   "matches": [
+    {
+     "date": "2026-11-09",
+     "home": "FONTENAY FOOTBALL TEAM C",
+     "away": "P12",
+     "status": "played",
+     "time": null,
+     "venue": "",
+     "score_home": 12,
+     "score_away": 1,
+     "penalty": false
+    },
+    {
+     "date": "2026-11-09",
+     "home": "LES BAGAUDES C",
+     "away": "LES BARONS B",
+     "status": "played",
+     "time": null,
+     "venue": "",
+     "score_home": 4,
+     "score_away": 4,
+     "penalty": false
+    },
+    {
+     "date": "2026-11-09",
+     "home": "WALLEBAY VILLA F.C",
+     "away": "RC SAMBA",
+     "status": "postponed",
+     "time": null,
+     "venue": "",
+     "note": "décalé (en attente de programmation)"
+    },
+    {
+     "date": "2027-03-08",
+     "home": "HIGH FIVE",
+     "away": "Espérance Breizhilienne",
+     "status": "scheduled",
+     "time": "19:15",
+     "venue": "Poissonniers honneur B"
+    }
+   ]
+  },
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°4",
+   "number": 4,
+   "matches": [
+    {
+     "date": "2026-11-16",
+     "home": "LES BARONS B",
+     "away": "FONTENAY FOOTBALL TEAM C",
+     "status": "scheduled",
+     "time": "20:00",
+     "venue": "Stade du Panorama - Fontenay Aux Roses (92)"
+    },
+    {
+     "date": "2026-11-16",
+     "home": "P12",
+     "away": "WALLEBAY VILLA F.C",
+     "status": "scheduled",
+     "time": "19:45",
+     "venue": "Choisy n°4 B"
+    },
+    {
+     "date": "2026-11-16",
+     "home": "Espérance Breizhilienne",
+     "away": "LES BAGAUDES C",
+     "status": "scheduled",
+     "time": "20:45",
+     "venue": "Stade Auguste Marin - St Maur des Fossés(94)"
+    },
+    {
+     "date": "2026-11-16",
+     "home": "RC SAMBA",
+     "away": "HIGH FIVE",
+     "status": "scheduled",
+     "time": "20:50",
+     "venue": "Poissonniers annexe B"
+    }
+   ]
+  },
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°5",
+   "number": 5,
+   "matches": [
+    {
+     "date": "2026-11-23",
+     "home": "FONTENAY FOOTBALL TEAM C",
+     "away": "WALLEBAY VILLA F.C",
+     "status": "scheduled",
+     "time": "21:00",
+     "venue": "Stade du Panorama - Fontenay Aux Roses (92)"
+    },
+    {
+     "date": "2026-11-23",
+     "home": "LES BARONS B",
+     "away": "Espérance Breizhilienne",
+     "status": "scheduled",
+     "time": "21:05",
+     "venue": "Choisy n°2 B"
+    },
+    {
+     "date": "2026-11-23",
+     "home": "HIGH FIVE",
+     "away": "P12",
+     "status": "scheduled",
+     "time": "21:00",
+     "venue": "Porte de Choisy F7"
+    },
+    {
+     "date": "2026-11-23",
+     "home": "LES BAGAUDES C",
+     "away": "RC SAMBA",
+     "status": "scheduled",
+     "time": "20:45",
+     "venue": "Stade Auguste Marin - St Maur des Fossés(94)"
+    }
+   ]
+  },
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°6",
+   "number": 6,
+   "matches": [
+    {
+     "date": "2026-11-30",
+     "home": "Espérance Breizhilienne",
+     "away": "FONTENAY FOOTBALL TEAM C",
+     "status": "scheduled",
+     "time": "20:00",
+     "venue": "Stade du Panorama - Fontenay Aux Roses (92)"
+    },
+    {
+     "date": "2026-11-30",
+     "home": "WALLEBAY VILLA F.C",
+     "away": "HIGH FIVE",
+     "status": "scheduled",
+     "time": "21:00",
+     "venue": "Porte de Choisy F7"
+    },
+    {
+     "date": "2026-11-30",
+     "home": "RC SAMBA",
+     "away": "LES BARONS B",
+     "status": "scheduled",
+     "time": "21:05",
+     "venue": "Choisy n°4 A"
+    },
+    {
+     "date": "2026-11-30",
+     "home": "P12",
+     "away": "LES BAGAUDES C",
+     "status": "scheduled",
+     "time": "20:45",
+     "venue": "Stade Auguste Marin - St Maur des Fossés(94)"
+    }
+   ]
+  },
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°7",
+   "number": 7,
+   "matches": [
+    {
+     "date": "2026-12-07",
+     "home": "FONTENAY FOOTBALL TEAM C",
+     "away": "HIGH FIVE",
+     "status": "scheduled",
+     "time": "21:00",
+     "venue": "Stade du Panorama - Fontenay Aux Roses (92)"
+    },
+    {
+     "date": "2026-12-07",
+     "home": "Espérance Breizhilienne",
+     "away": "RC SAMBA",
+     "status": "scheduled",
+     "time": "20:00",
+     "venue": "Ile de Puteaux n°2A - PUTEAUX"
+    },
+    {
+     "date": "2026-12-07",
+     "home": "LES BAGAUDES C",
+     "away": "WALLEBAY VILLA F.C",
+     "status": "scheduled",
+     "time": "20:45",
+     "venue": "Stade Auguste Marin - St Maur des Fossés(94)"
+    },
+    {
+     "date": "2026-12-07",
+     "home": "LES BARONS B",
+     "away": "P12",
+     "status": "scheduled",
+     "time": "20:00",
+     "venue": "Porte Dauphine F7"
+    }
+   ]
+  },
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°8",
+   "number": 8,
+   "matches": [
+    {
+     "date": "2026-12-14",
+     "home": "RC SAMBA",
+     "away": "FONTENAY FOOTBALL TEAM C",
+     "status": "scheduled",
+     "time": "20:00",
+     "venue": "Stade du Panorama - Fontenay Aux Roses (92)"
+    },
+    {
+     "date": "2026-12-14",
+     "home": "LES BAGAUDES C",
+     "away": "HIGH FIVE",
+     "status": "scheduled",
+     "time": "20:45",
+     "venue": "Stade Auguste Marin - St Maur des Fossés(94)"
+    },
+    {
+     "date": "2026-12-14",
+     "home": "Espérance Breizhilienne",
+     "away": "P12",
+     "status": "scheduled",
+     "time": "19:45",
+     "venue": "Choisy n°23 A"
+    },
+    {
+     "date": "2026-12-14",
+     "home": "LES BARONS B",
+     "away": "WALLEBAY VILLA F.C",
+     "status": "scheduled",
+     "time": "19:30",
+     "venue": "Parc du Tremblay n°8A"
+    }
+   ]
+  },
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°9",
+   "number": 9,
+   "matches": [
+    {
+     "date": "2027-01-11",
+     "home": "FONTENAY FOOTBALL TEAM C",
+     "away": "LES BAGAUDES C",
+     "status": "scheduled",
+     "time": "21:00",
+     "venue": "Stade du Panorama - Fontenay Aux Roses (92)"
+    },
+    {
+     "date": "2027-01-11",
+     "home": "P12",
+     "away": "RC SAMBA",
+     "status": "scheduled",
+     "time": "20:50",
+     "venue": "Poissonniers annexe B"
+    },
+    {
+     "date": "2027-01-11",
+     "home": "HIGH FIVE",
+     "away": "LES BARONS B",
+     "status": "scheduled",
+     "time": "20:00",
+     "venue": "Porte Dauphine F7"
+    },
+    {
+     "date": "2027-01-11",
+     "home": "WALLEBAY VILLA F.C",
+     "away": "Espérance Breizhilienne",
+     "status": "scheduled",
+     "time": "19:45",
+     "venue": "Porte d Orléans F7"
+    }
+   ]
+  },
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°10",
+   "number": 10,
+   "matches": [
+    {
+     "date": "2027-01-18",
+     "home": "P12",
+     "away": "FONTENAY FOOTBALL TEAM C",
+     "status": "scheduled",
+     "time": "21:00",
+     "venue": "Stade du Panorama - Fontenay Aux Roses (92)"
+    },
+    {
+     "date": "2027-01-18",
+     "home": "LES BARONS B",
+     "away": "LES BAGAUDES C",
+     "status": "scheduled",
+     "time": "20:45",
+     "venue": "Stade Auguste Marin - St Maur des Fossés(94)"
+    },
+    {
+     "date": "2027-01-18",
+     "home": "RC SAMBA",
+     "away": "WALLEBAY VILLA F.C",
+     "status": "scheduled",
+     "time": "19:45",
+     "venue": "Choisy n°23 B"
+    },
+    {
+     "date": "2027-01-18",
+     "home": "Espérance Breizhilienne",
+     "away": "HIGH FIVE",
+     "status": "scheduled",
+     "time": "19:45",
+     "venue": "Choisy n°2 B"
+    }
+   ]
+  },
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°11",
+   "number": 11,
+   "matches": [
+    {
+     "date": "2027-01-25",
+     "home": "FONTENAY FOOTBALL TEAM C",
+     "away": "LES BARONS B",
+     "status": "scheduled",
+     "time": "20:00",
+     "venue": "Stade du Panorama - Fontenay Aux Roses (92)"
+    },
+    {
+     "date": "2027-01-25",
+     "home": "WALLEBAY VILLA F.C",
+     "away": "P12",
+     "status": "scheduled",
+     "time": "19:30",
+     "venue": "Parc du Tremblay n°8B"
+    },
+    {
+     "date": "2027-01-25",
+     "home": "LES BAGAUDES C",
+     "away": "Espérance Breizhilienne",
+     "status": "scheduled",
+     "time": "20:45",
+     "venue": "Stade Auguste Marin - St Maur des Fossés(94)"
+    },
+    {
+     "date": "2027-01-25",
+     "home": "HIGH FIVE",
+     "away": "RC SAMBA",
+     "status": "scheduled",
+     "time": "19:45",
+     "venue": "Choisy n°23 A"
+    }
+   ]
+  },
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°12",
+   "number": 12,
+   "matches": [
+    {
+     "date": "2027-02-08",
+     "home": "WALLEBAY VILLA F.C",
+     "away": "FONTENAY FOOTBALL TEAM C",
+     "status": "scheduled",
+     "time": "21:00",
+     "venue": "Stade du Panorama - Fontenay Aux Roses (92)"
+    },
+    {
+     "date": "2027-02-08",
+     "home": "Espérance Breizhilienne",
+     "away": "LES BARONS B",
+     "status": "scheduled",
+     "time": "21:00",
+     "venue": "Ile de Puteaux n°2A - PUTEAUX"
+    },
+    {
+     "date": "2027-02-08",
+     "home": "P12",
+     "away": "HIGH FIVE",
+     "status": "scheduled",
+     "time": "19:45",
+     "venue": "Choisy n°23 A"
+    },
+    {
+     "date": "2027-02-08",
+     "home": "RC SAMBA",
+     "away": "LES BAGAUDES C",
+     "status": "scheduled",
+     "time": "20:45",
+     "venue": "Stade Auguste Marin - St Maur des Fossés(94)"
+    }
+   ]
+  },
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°13",
+   "number": 13,
+   "matches": [
+    {
+     "date": "2027-02-15",
+     "home": "FONTENAY FOOTBALL TEAM C",
+     "away": "Espérance Breizhilienne",
+     "status": "scheduled",
+     "time": "20:00",
+     "venue": "Stade du Panorama - Fontenay Aux Roses (92)"
+    },
+    {
+     "date": "2027-02-15",
+     "home": "HIGH FIVE",
+     "away": "WALLEBAY VILLA F.C",
+     "status": "scheduled",
+     "time": "21:05",
+     "venue": "Choisy n°23 A"
+    },
+    {
+     "date": "2027-02-15",
+     "home": "LES BARONS B",
+     "away": "RC SAMBA",
+     "status": "scheduled",
+     "time": "19:45",
+     "venue": "Choisy n°4 B"
+    },
+    {
+     "date": "2027-02-15",
+     "home": "LES BAGAUDES C",
+     "away": "P12",
+     "status": "scheduled",
+     "time": "20:45",
+     "venue": "Stade Auguste Marin - St Maur des Fossés(94)"
+    }
+   ]
+  },
+  {
+   "name": "CHAMPIONNAT - JOURNEE N°14",
+   "number": 14,
+   "matches": [
+    {
+     "date": "2027-02-22",
+     "home": "HIGH FIVE",
+     "away": "FONTENAY FOOTBALL TEAM C",
+     "status": "scheduled",
+     "time": "21:00",
+     "venue": "Stade du Panorama - Fontenay Aux Roses (92)"
+    },
+    {
+     "date": "2027-02-22",
+     "home": "RC SAMBA",
+     "away": "Espérance Breizhilienne",
+     "status": "scheduled",
+     "time": "21:05",
+     "venue": "Choisy n°21 B"
+    },
+    {
+     "date": "2027-02-22",
+     "home": "WALLEBAY VILLA F.C",
+     "away": "LES BAGAUDES C",
+     "status": "scheduled",
+     "time": "20:45",
+     "venue": "Stade Auguste Marin - St Maur des Fossés(94)"
+    },
+    {
+     "date": "2027-02-22",
+     "home": "P12",
+     "away": "LES BARONS B",
+     "status": "scheduled",
+     "time": "20:50",
+     "venue": "Porte d Auteuil A"
+    }
+   ]
+  }
+ ],
+ "updated_at": "2026-11-13T18:30+01:00"
+}

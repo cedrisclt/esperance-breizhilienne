@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Championnat — Espérance Breizhilienne</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="img/favicon.png">
+</head>
+<body>
+
+<header class="app-hero">
+  <div class="app-hero-inner">
+    <div class="app-hero-top">
+      <div>
+        <h1>Championnat</h1>
+        <p class="tagline">Espérance Breizhilienne — Foot à 7</p>
+      </div>
+      <div class="identity-bar" id="identityBar"></div>
+    </div>
+    <nav class="app-nav">
+      <a href="index.html">Accueil</a>
+      <a href="equipe.html">Effectif</a>
+      <a href="matchs.html">Matchs</a>
+      <a href="disponibilites.html">Disponibilités</a>
+      <a href="compo.html">Compositions</a>
+      <a href="mvp.html">MVP</a>
+      <a href="resultats.html">Résultats</a>
+      <a href="recap.html">Récap</a>
+      <a href="championnat.html" class="active">Championnat</a>
+      <a href="guide.html">Guide</a>
+    </nav>
+  </div>
+</header>
+
+<main class="app-main">
+
+  <section class="card">
+    <h2>Classement</h2>
+    <p class="champ-meta" id="champMeta"></p>
+    <div class="table-scroll">
+      <table class="calendar champ-table" id="standingsTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Équipe</th>
+            <th class="num">Pts</th>
+            <th class="num">J</th>
+            <th class="num">G</th>
+            <th class="num">N</th>
+            <th class="num">P</th>
+            <th class="num hide-sm">BP</th>
+            <th class="num hide-sm">BC</th>
+            <th class="num">Diff</th>
+          </tr>
+        </thead>
+        <tbody id="standingsBody"></tbody>
+      </table>
+    </div>
+    <p class="note">
+      Classement officiel du site FSGT Île-de-France : il peut avoir un peu de retard sur les
+      derniers résultats. G/N/P = gagnés/nuls/perdus, BP/BC = buts pour/contre (affichés sur grand écran), Diff = différence de buts.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Résultats</h2>
+    <div id="resultsList"></div>
+  </section>
+
+  <section class="card">
+    <h2>Calendrier</h2>
+    <div id="fixturesList"></div>
+  </section>
+
+</main>
+
+<footer>
+  <p>Espérance Breizhilienne · Foot à 7 FSGT IDF</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script src="js/identity.js"></script>
+<script>
+const OUR_TEAM = "Espérance Breizhilienne";
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str == null ? "" : String(str);
+  return div.innerHTML;
+}
+
+function formatDate(iso) {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function teamHtml(name) {
+  return name === OUR_TEAM ? `<strong class="champ-us">${escapeHtml(name)}</strong>` : escapeHtml(name);
+}
+
+function renderStandings(rows) {
+  document.getElementById("standingsBody").innerHTML = rows.map((r) => `
+    <tr class="${r.team === OUR_TEAM ? "champ-us-row" : ""}">
+      <td>${r.rank}</td>
+      <td>${teamHtml(r.team)}</td>
+      <td class="num"><strong>${r.pts}</strong></td>
+      <td class="num">${r.played}</td>
+      <td class="num">${r.won}</td>
+      <td class="num">${r.drawn}</td>
+      <td class="num">${r.lost}</td>
+      <td class="num hide-sm">${r.gf}</td>
+      <td class="num hide-sm">${r.ga}</td>
+      <td class="num">${r.diff > 0 ? "+" : ""}${r.diff}</td>
+    </tr>`).join("");
+}
+
+// Pastille V/N/D du point de vue de l'Espérance, pour repérer ses matchs d'un coup d'œil.
+function outcomeChip(m) {
+  if (m.home !== OUR_TEAM && m.away !== OUR_TEAM) return "";
+  const ours = m.home === OUR_TEAM ? m.score_home : m.score_away;
+  const theirs = m.home === OUR_TEAM ? m.score_away : m.score_home;
+  const [cls, label] = ours > theirs ? ["win", "V"] : ours < theirs ? ["loss", "D"] : ["draw", "N"];
+  return `<span class="champ-chip ${cls}">${label}</span>`;
+}
+
+function playedRow(m) {
+  const ours = m.home === OUR_TEAM || m.away === OUR_TEAM;
+  return `
+    <div class="champ-match ${ours ? "ours" : ""}">
+      <span class="champ-date">${formatDate(m.date).slice(0, 5)}</span>
+      <span class="champ-home">${teamHtml(m.home)}</span>
+      <span class="champ-score">${m.score_home} - ${m.score_away}</span>
+      <span class="champ-away">${teamHtml(m.away)}</span>
+      ${outcomeChip(m)}
+    </div>`;
+}
+
+function fixtureRow(m) {
+  const ours = m.home === OUR_TEAM || m.away === OUR_TEAM;
+  const detail = m.status === "postponed"
+    ? "Décalé, en attente de programmation"
+    : [m.time && m.time.replace(":", "h"), m.venue].filter(Boolean).join(" · ");
+  return `
+    <div class="champ-match ${ours ? "ours" : ""}">
+      <span class="champ-date">${formatDate(m.date).slice(0, 5)}</span>
+      <span class="champ-home">${teamHtml(m.home)}</span>
+      <span class="champ-score vs">vs</span>
+      <span class="champ-away">${teamHtml(m.away)}</span>
+      <span class="champ-detail">${escapeHtml(detail)}</span>
+    </div>`;
+}
+
+function roundTitle(r) {
+  return r.number ? `Journée ${r.number}` : r.name;
+}
+
+function renderResults(rounds) {
+  const list = document.getElementById("resultsList");
+  const withResults = rounds
+    .map((r) => ({ ...r, played: r.matches.filter((m) => m.status === "played") }))
+    .filter((r) => r.played.length > 0)
+    .reverse(); // dernière journée en premier
+  if (withResults.length === 0) {
+    list.innerHTML = '<p class="note" style="margin:0">Aucun résultat pour le moment.</p>';
+    return;
+  }
+  list.innerHTML = withResults.map((r) => `
+    <div class="champ-round">
+      <h3>${escapeHtml(roundTitle(r))}</h3>
+      ${r.played.map(playedRow).join("")}
+    </div>`).join("");
+}
+
+function renderFixtures(rounds) {
+  const list = document.getElementById("fixturesList");
+  const upcoming = rounds
+    .map((r) => ({ ...r, todo: r.matches.filter((m) => m.status !== "played") }))
+    .filter((r) => r.todo.length > 0);
+  if (upcoming.length === 0) {
+    list.innerHTML = '<p class="note" style="margin:0">Plus aucun match à jouer.</p>';
+    return;
+  }
+  // Seule la prochaine journée est dépliée.
+  list.innerHTML = upcoming.map((r, i) => `
+    <details class="champ-round" ${i === 0 ? "open" : ""}>
+      <summary>${escapeHtml(roundTitle(r))}</summary>
+      ${r.todo.map(fixtureRow).join("")}
+    </details>`).join("");
+}
+
+async function init() {
+  try {
+    const resp = await fetch(`data/championnat.json?v=${Date.now()}`);
+    if (!resp.ok) throw new Error(resp.status);
+    const data = await resp.json();
+    document.getElementById("champMeta").textContent = data.group
+      ? `${data.group.replace(/^FOOT A 7/, "Foot à 7")}${data.updated_at ? ` · mis à jour le ${formatDate(data.updated_at.slice(0, 10))}` : ""}`
+      : "";
+    renderStandings(data.standings);
+    renderResults(data.rounds);
+    renderFixtures(data.rounds);
+  } catch (e) {
+    document.querySelector("main").insertAdjacentHTML("afterbegin",
+      '<div class="config-warning">Impossible de charger les données du championnat pour le moment.</div>');
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>

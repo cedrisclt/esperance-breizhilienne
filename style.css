@@ -997,3 +997,65 @@ main.app-main {
   font-size: .82rem;
   color: var(--muted);
 }
+
+/* ───────────────────────── Championnat ───────────────────────── */
+
+.champ-meta { margin: -8px 0 12px; font-size: .82rem; color: var(--muted); }
+
+table.champ-table { min-width: 0; font-size: .88rem; }
+table.champ-table th, table.champ-table td { padding: 10px 6px; }
+table.champ-table .num { text-align: center; }
+table.champ-table tr.champ-us-row td { background: rgba(225, 137, 162, .14); }
+
+.champ-us { color: var(--pink-dark); }
+
+.champ-round { margin-top: 18px; }
+.champ-round:first-child { margin-top: 0; }
+.champ-round h3, .champ-round summary {
+  margin: 0 0 6px;
+  font-size: .72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--muted);
+  cursor: default;
+}
+.champ-round summary { cursor: pointer; padding: 4px 0; }
+
+.champ-match {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto minmax(0, 1fr) 22px;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: .88rem;
+}
+.champ-match:last-child { border-bottom: none; }
+.champ-match.ours { background: rgba(225, 137, 162, .12); border-radius: 8px; border-bottom-color: transparent; }
+.champ-date { color: var(--muted); font-size: .78rem; }
+.champ-home { text-align: right; }
+.champ-score { font-weight: 600; white-space: nowrap; text-align: center; min-width: 46px; }
+.champ-score.vs { color: var(--muted); font-weight: 400; }
+.champ-detail { grid-column: 2 / -1; font-size: .76rem; color: var(--muted); }
+
+.champ-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  font-size: .72rem; font-weight: 600;
+}
+.champ-chip.win { background: rgba(60, 140, 90, .16); color: #2f7a4d; }
+.champ-chip.draw { background: rgba(22, 18, 26, .08); color: var(--noir); }
+.champ-chip.loss { background: rgba(168, 70, 47, .16); color: #a8462f; }
+
+@media (max-width: 520px) {
+  table.champ-table { font-size: .8rem; }
+  table.champ-table th, table.champ-table td { padding: 8px 3px; }
+  table.champ-table .hide-sm { display: none; }
+}
+
+@media (max-width: 520px) {
+  .champ-match { gap: 5px; padding: 9px 4px; font-size: .8rem; }
+  .champ-date { font-size: .72rem; }
+  .champ-score { min-width: 38px; }
+}
