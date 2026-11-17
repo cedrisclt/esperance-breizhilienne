@@ -5,6 +5,34 @@
   {
    "rank": 1,
    "team": "FONTENAY FOOTBALL TEAM C",
+   "pts": 10,
+   "played": 4,
+   "won": 3,
+   "drawn": 0,
+   "lost": 1,
+   "forfeits": 0,
+   "penalties": 0,
+   "gf": 28,
+   "ga": 10,
+   "diff": 17
+  },
+  {
+   "rank": 2,
+   "team": "RC SAMBA",
+   "pts": 9,
+   "played": 3,
+   "won": 3,
+   "drawn": 0,
+   "lost": 0,
+   "forfeits": 0,
+   "penalties": 0,
+   "gf": 21,
+   "ga": 7,
+   "diff": 14
+  },
+  {
+   "rank": 3,
+   "team": "WALLEBAY VILLA F.C",
    "pts": 7,
    "played": 3,
    "won": 2,
@@ -12,26 +40,12 @@
    "lost": 1,
    "forfeits": 0,
    "penalties": 0,
-   "gf": 20,
-   "ga": 8,
-   "diff": 11
+   "gf": 21,
+   "ga": 9,
+   "diff": 12
   },
   {
-   "rank": 2,
-   "team": "RC SAMBA",
-   "pts": 6,
-   "played": 2,
-   "won": 2,
-   "drawn": 0,
-   "lost": 0,
-   "forfeits": 0,
-   "penalties": 0,
-   "gf": 15,
-   "ga": 6,
-   "diff": 9
-  },
-  {
-   "rank": 3,
+   "rank": 4,
    "team": "LES BAGAUDES C",
    "pts": 6,
    "played": 3,
@@ -45,8 +59,22 @@
    "diff": -1
   },
   {
-   "rank": 4,
+   "rank": 5,
    "team": "P12",
+   "pts": 6,
+   "played": 4,
+   "won": 1,
+   "drawn": 0,
+   "lost": 3,
+   "forfeits": 0,
+   "penalties": 0,
+   "gf": 8,
+   "ga": 33,
+   "diff": -24
+  },
+  {
+   "rank": 6,
+   "team": "HIGH FIVE",
    "pts": 5,
    "played": 3,
    "won": 1,
@@ -54,40 +82,26 @@
    "lost": 2,
    "forfeits": 0,
    "penalties": 0,
-   "gf": 7,
-   "ga": 23,
-   "diff": -15
-  },
-  {
-   "rank": 5,
-   "team": "WALLEBAY VILLA F.C",
-   "pts": 4,
-   "played": 2,
-   "won": 1,
-   "drawn": 0,
-   "lost": 1,
-   "forfeits": 0,
-   "penalties": 0,
-   "gf": 11,
-   "ga": 8,
-   "diff": 3
-  },
-  {
-   "rank": 6,
-   "team": "HIGH FIVE",
-   "pts": 4,
-   "played": 2,
-   "won": 1,
-   "drawn": 0,
-   "lost": 1,
-   "forfeits": 0,
-   "penalties": 0,
-   "gf": 7,
-   "ga": 5,
-   "diff": 2
+   "gf": 8,
+   "ga": 11,
+   "diff": -3
   },
   {
    "rank": 7,
+   "team": "LES BARONS B",
+   "pts": 5,
+   "played": 4,
+   "won": 0,
+   "drawn": 1,
+   "lost": 3,
+   "forfeits": 0,
+   "penalties": 0,
+   "gf": 10,
+   "ga": 26,
+   "diff": -16
+  },
+  {
+   "rank": 8,
    "team": "Espérance Breizhilienne",
    "pts": 4,
    "played": 2,
@@ -99,20 +113,6 @@
    "gf": 7,
    "ga": 6,
    "diff": 1
-  },
-  {
-   "rank": 8,
-   "team": "LES BARONS B",
-   "pts": 4,
-   "played": 3,
-   "won": 0,
-   "drawn": 1,
-   "lost": 2,
-   "forfeits": 0,
-   "penalties": 0,
-   "gf": 8,
-   "ga": 18,
-   "diff": -10
   }
  ],
  "rounds": [
@@ -269,17 +269,23 @@
      "date": "2026-11-16",
      "home": "LES BARONS B",
      "away": "FONTENAY FOOTBALL TEAM C",
-     "status": "scheduled",
-     "time": "20:00",
-     "venue": "Stade du Panorama - Fontenay Aux Roses (92)"
+     "status": "played",
+     "time": null,
+     "venue": "",
+     "score_home": 2,
+     "score_away": 8,
+     "penalty": false
     },
     {
      "date": "2026-11-16",
      "home": "P12",
      "away": "WALLEBAY VILLA F.C",
-     "status": "scheduled",
-     "time": "19:45",
-     "venue": "Choisy n°4 B"
+     "status": "played",
+     "time": null,
+     "venue": "",
+     "score_home": 1,
+     "score_away": 10,
+     "penalty": false
     },
     {
      "date": "2026-11-16",
@@ -683,5 +689,5 @@
    ]
   }
  ],
- "updated_at": "2026-11-17T04:05+01:00"
+ "updated_at": "2026-11-17T12:01+01:00"
 }
