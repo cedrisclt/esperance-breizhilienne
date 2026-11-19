@@ -292,8 +292,8 @@
      "home": "Espérance Breizhilienne",
      "away": "LES BAGAUDES C",
      "status": "scheduled",
-     "time": "20:45",
-     "venue": "Stade Auguste Marin - St Maur des Fossés(94)"
+     "time": null,
+     "venue": "Feuille de match non parvenue"
     },
     {
      "date": "2026-11-16",
@@ -689,5 +689,5 @@
    ]
   }
  ],
- "updated_at": "2026-11-17T12:01+01:00"
+ "updated_at": "2026-11-19T16:15+01:00"
 }
