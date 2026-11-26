@@ -60,6 +60,20 @@
   },
   {
    "rank": 5,
+   "team": "LES BARONS B",
+   "pts": 8,
+   "played": 5,
+   "won": 1,
+   "drawn": 1,
+   "lost": 3,
+   "forfeits": 0,
+   "penalties": 0,
+   "gf": 15,
+   "ga": 28,
+   "diff": -13
+  },
+  {
+   "rank": 6,
    "team": "WALLEBAY VILLA F.C",
    "pts": 7,
    "played": 4,
@@ -73,7 +87,7 @@
    "diff": 7
   },
   {
-   "rank": 6,
+   "rank": 7,
    "team": "P12",
    "pts": 7,
    "played": 5,
@@ -87,32 +101,18 @@
    "diff": -26
   },
   {
-   "rank": 7,
+   "rank": 8,
    "team": "Espérance Breizhilienne",
-   "pts": 5,
-   "played": 3,
+   "pts": 6,
+   "played": 4,
    "won": 1,
    "drawn": 0,
-   "lost": 2,
-   "forfeits": 0,
-   "penalties": 0,
-   "gf": 11,
-   "ga": 11,
-   "diff": 0
-  },
-  {
-   "rank": 8,
-   "team": "LES BARONS B",
-   "pts": 5,
-   "played": 4,
-   "won": 0,
-   "drawn": 1,
    "lost": 3,
    "forfeits": 0,
    "penalties": 0,
-   "gf": 10,
-   "ga": 26,
-   "diff": -16
+   "gf": 13,
+   "ga": 16,
+   "diff": -3
   }
  ],
  "rounds": [
@@ -701,5 +701,5 @@
    ]
   }
  ],
- "updated_at": "2026-11-25T20:05+01:00"
+ "updated_at": "2026-11-26T12:00+01:00"
 }
